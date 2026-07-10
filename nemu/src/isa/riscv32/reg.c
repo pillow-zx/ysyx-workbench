@@ -26,7 +26,7 @@ void isa_reg_display()
         bool success = false;
         for (int i = 0; i < ARRLEN(regs); i++) {
                 word_t value = isa_reg_str2val(regs[i], &success);
-                Log("%-16s0x%-16x%d\n", regs[i], value, value);
+                printf("%-16s0x%-16x%d\n", regs[i], value, value);
         }
         /* printf("%-16s0x%-16x%d\n", "mstatus", cpu.csr.mstatus, cpu.csr.mstatus); */
         /* printf("%-16s0x%-16x%d\n", "mtvec", cpu.csr.mtvec, cpu.csr.mtvec); */

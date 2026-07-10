@@ -19,6 +19,8 @@
 #include <readline/history.h>
 #include <memory/vaddr.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "sdb.h"
 
 static int is_batch_mode = false;
@@ -112,9 +114,84 @@ static int cmd_x(char *args)
         for (int i = 0; i < count; i++) {
                 word_t cur = addr + i * 4;
                 word_t data = vaddr_read(cur, 4);
-                Log("0x%08x 0x%08x\n", cur, data);
+                printf("0x%08x 0x%08x\n", cur, data);
         }
 
+        return 0;
+}
+
+static int cmd_p(char *args)
+{
+        bool success = true;
+        word_t result = expr(args, &success);
+        if (success)
+                printf("十六进制：0x%08x  |  十进制：%08u\n", result, result);
+        else
+                printf("Invalid expression: %s\n", args);
+
+        return 0;
+}
+
+static int cmd_w(char *args)
+{
+        add_wp(args);
+        return 0;
+}
+
+static int cmd_d(char *args)
+{
+        word_t value;
+        if (sscanf(args, "%u", &value) < 1) {
+                printf("Invalid argument: %s\n", args);
+        }
+        delete_wp(value);
+        return 0;
+}
+
+static int cmd_clr(char *args)
+{
+        system("clear");
+        return 0;
+}
+
+static int cmd_test(char *args)
+{
+        if (args == NULL) {
+                printf("Invalid argument.\n");
+                return 0;
+        }
+
+        unsigned wrong = 0;
+
+        FILE *fp = fopen(args, "r");
+        if (fp == NULL) {
+                fprintf(stderr, "Failed to open input file.\n");
+                return 1;
+        }
+        char *temp = (char *)malloc(1000 * sizeof(char));
+        while (fgets(temp, 1000, fp) != NULL) {
+                char *temps = strtok(temp, " ");
+                if (temps == NULL) {
+                        continue;
+                }
+                char *exprs = temps + strlen(temps) + 1;
+                exprs[strlen(exprs) - 1] = '\0';
+                word_t result;
+                sscanf(temps, "%u", &result);
+                bool success = true;
+                word_t res = expr(exprs, &success);
+                if (!success) {
+                        printf("Error in expression: %s\n", exprs);
+                } else if (res != result) {
+                        printf("Expression: %s, Expected: %u, Got: %u\n", exprs,
+                               result, res);
+                        exit(1);
+                        wrong++;
+                } else {
+                }
+        }
+        printf("Wrong: %u\n", wrong);
+        fclose(fp);
         return 0;
 }
 
@@ -133,6 +210,11 @@ static struct {
         {"si", "Step into the program", cmd_si},
         {"info", "Show information about registers", cmd_info},
         {"x", "Examine memory", cmd_x},
+        {"p", "Evaluate expression", cmd_p},
+        {"w", "Setting watchpoint", cmd_w},
+        {"d", "Delete watchpoint", cmd_d},
+        {"clear", "Clean screen", cmd_clr},
+        {"test", "Run test for expression", cmd_test},
 };
 
 #define NR_CMD ARRLEN(cmd_table)
