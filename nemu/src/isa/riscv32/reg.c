@@ -22,7 +22,18 @@ const char *regs[] = {"$0", "ra", "sp",  "gp",  "tp", "t0", "t1", "t2",
                       "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"};
 
 void isa_reg_display()
-{}
+{
+        bool success = false;
+        for (int i = 0; i < ARRLEN(regs); i++) {
+                word_t value = isa_reg_str2val(regs[i], &success);
+                Log("%-16s0x%-16x%d\n", regs[i], value, value);
+        }
+        /* printf("%-16s0x%-16x%d\n", "mstatus", cpu.csr.mstatus, cpu.csr.mstatus); */
+        /* printf("%-16s0x%-16x%d\n", "mtvec", cpu.csr.mtvec, cpu.csr.mtvec); */
+        /* printf("%-16s0x%-16x%d\n", "mepc", cpu.csr.mepc, cpu.csr.mepc); */
+        /* printf("%-16s0x%-16x%d\n", "mcause", cpu.csr.mcause, cpu.csr.mcause); */
+        /* printf("%-16s0x%-16x%d\n", "pc", cpu.pc, cpu.pc); */
+}
 
 word_t isa_reg_str2val(const char *s, bool *success)
 {

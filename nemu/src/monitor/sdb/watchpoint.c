@@ -16,13 +16,15 @@
 #include "sdb.h"
 
 #define NR_WP 32
+#define MAX_EXPR_LEN 64
 
 typedef struct watchpoint {
         int NO;
         struct watchpoint *next;
 
         /* TODO: Add more members if necessary */
-
+        char str[MAX_EXPR_LEN];
+        word_t value;
 } WP;
 
 static WP wp_pool[NR_WP] = {};
@@ -41,3 +43,15 @@ void init_wp_pool()
 }
 
 /* TODO: Implement the functionality of watchpoint */
+void display_wp()
+{
+        if (head == NULL) {
+                Log("No watchpoint set.\n");
+                return;
+        }
+        WP *temp = head;
+        while (temp) {
+                Log("Watchpoint %d: %s, value: %u\n", temp->NO, temp->str, temp->value);
+                temp = temp->next;
+        }
+}

@@ -17,6 +17,8 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <memory/vaddr.h>
+#include <stdio.h>
 #include "sdb.h"
 
 static int is_batch_mode = false;
@@ -55,6 +57,67 @@ static int cmd_q(char *args)
         return -1;
 }
 
+static int cmd_si(char *args)
+{
+        int n = 1;
+        if (args != NULL) {
+                if (sscanf(args, "%d", &n) < 1 || n < 1) {
+                        Log("Invalid argument: %s\n", args);
+                        return 0;
+                }
+        }
+        cpu_exec(n);
+        return 0;
+}
+
+static int cmd_info(char *args)
+{
+        if (args == NULL) {
+                Log("Invalid argument: %s\n", args);
+                return -1;
+        }
+        if (strcmp(args, "r") == 0)
+                isa_reg_display();
+        else if (strcmp(args, "w") == 0)
+                display_wp();
+        else
+                Log("Unknown command '%s'\n", args);
+        return 0;
+}
+
+static int cmd_x(char *args)
+{
+        if (args == NULL) {
+                Log("Invalid argument: %s\n", args);
+                return 0;
+        }
+        char *count_str = strtok(args, " ");
+        char *expr_str = strtok(NULL, " ");
+
+        if (count_str == NULL || expr_str == NULL) {
+                Log("Invalid argument: %s\n", args);
+                return 0;
+        }
+
+        int count = atoi(count_str);
+
+        bool success = true;
+        word_t addr = expr(expr_str, &success);
+
+        if (!success) {
+                Log("Invalid expressions: %s\n", expr_str);
+                return 0;
+        }
+
+        for (int i = 0; i < count; i++) {
+                word_t cur = addr + i * 4;
+                word_t data = vaddr_read(cur, 4);
+                Log("0x%08x 0x%08x\n", cur, data);
+        }
+
+        return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -67,7 +130,9 @@ static struct {
         {"q", "Exit NEMU", cmd_q},
 
         /* TODO: Add more commands */
-
+        {"si", "Step into the program", cmd_si},
+        {"info", "Show information about registers", cmd_info},
+        {"x", "Examine memory", cmd_x},
 };
 
 #define NR_CMD ARRLEN(cmd_table)
@@ -135,6 +200,7 @@ void sdb_mainloop()
                 for (i = 0; i < NR_CMD; i++) {
                         if (strcmp(cmd, cmd_table[i].name) == 0) {
                                 if (cmd_table[i].handler(args) < 0) {
+                                        nemu_state.state = NEMU_QUIT;
                                         return;
                                 }
                                 break;
