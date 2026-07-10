@@ -20,6 +20,8 @@
 
 word_t expr(char *e, bool *success);
 
+void add_wp(char *str);
+void delete_wp(word_t position);
 void display_wp();
 
 #endif

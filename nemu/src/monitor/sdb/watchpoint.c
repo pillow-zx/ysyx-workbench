@@ -43,6 +43,57 @@ void init_wp_pool()
 }
 
 /* TODO: Implement the functionality of watchpoint */
+WP *new_wp(char *str, bool *success)
+{
+        WP *wp = free_;
+        free_ = free_->next;
+        strncpy(wp->str, str, strlen(str));
+        wp->str[strlen(str)] = '\0';
+        wp->value = expr(str, success);
+        wp->next = head;
+        head = wp;
+        return wp;
+}
+
+void add_wp(char *str)
+{
+        if (free_ == NULL) {
+                printf("No free watchpoint avaiable!\n");
+                return;
+        }
+
+        bool success = true;
+        WP *wp = new_wp(str, &success);
+        if (!success) {
+                printf("Invalid expression: %s\n", str);
+                return;
+        }
+
+        printf("Watchpoint %d: %s, value = %d\n", wp->NO, wp->str, wp->value);
+}
+
+void delete_wp(word_t position)
+{
+        if (head->NO == position) {
+                WP *temp = head;
+                head = head->next;
+                temp->next = free_;
+                free_ = temp;
+        } else {
+                WP *wp = head;
+                while (wp->next) {
+                        if (wp->next->NO == position) {
+                                WP *temp = wp->next;
+                                wp->next = temp->next;
+                                temp->next = free_;
+                                free_ = temp;
+                                break;
+                        }
+                        wp = wp->next;
+                }
+        }
+}
+
 void display_wp()
 {
         if (head == NULL) {
@@ -51,7 +102,28 @@ void display_wp()
         }
         WP *temp = head;
         while (temp) {
-                Log("Watchpoint %d: %s, value: %u\n", temp->NO, temp->str, temp->value);
+                Log("Watchpoint %d: %s, value: %u\n", temp->NO, temp->str,
+                    temp->value);
                 temp = temp->next;
         }
+}
+
+int update_wp()
+{
+        int is_changed = 0;
+        WP *wp = head;
+        while (wp != NULL) {
+                bool success = true;
+                word_t value = expr(wp->str, &success);
+                Assert(success, "Invalid expression: %s", wp->str);
+
+                if (value != wp->value) {
+                        is_changed += 1;
+                        printf("Watchpoint %d: %s changed from %d to %d\n",
+                               wp->NO, wp->str, wp->value, value);
+                        wp->value = value; // 更新监视点的值
+                }
+                wp = wp->next;
+        }
+        return is_changed;
 }
