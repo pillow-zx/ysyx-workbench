@@ -17,6 +17,7 @@
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
 #include <locale.h>
+#include <stdio.h>
 
 /* The assembly code of instructions executed is only output to the screen
  * when the number of instructions executed is less than this value.
@@ -59,8 +60,117 @@ static void iringbuf_show()
 }
 #endif
 
+#ifdef CONFIG_FTRACE
+
+#define CALL_FUNC_TIMES 20
+
+typedef struct {
+        vaddr_t pc;
+        const char *name;
+} CallFrame;
+
+static CallFrame call_stack[CALL_FUNC_TIMES];
+static int call_stack_depth = 0;
+
+static inline bool ftrace_ready(void)
+{
+        return elf.ehdr && elf.shdr && elf.symtab && elf.strtab;
+}
+
+static const char *get_symbol_name(vaddr_t pc)
+{
+        for (int i = 0; i < elf.symtab_num; i++) {
+                Elf32_Sym *sym = &elf.symtab[i];
+
+                if (ELF32_ST_TYPE(sym->st_info) != STT_FUNC)
+                        continue;
+
+                if (pc >= sym->st_value && pc < sym->st_value + sym->st_size)
+                        return elf.strtab + sym->st_name;
+        }
+        return NULL;
+}
+
+static void ftrace_elf_start(vaddr_t pc, vaddr_t dnpc, bool is_call,
+                             bool is_ret)
+{
+        if (!ftrace_ready())
+                return;
+
+        if (is_call) {
+                const char *target = get_symbol_name(dnpc);
+
+                if (target == NULL)
+                        return;
+
+                if (call_stack_depth > 0 &&
+                    strcmp(call_stack[call_stack_depth - 1].name, target) == 0)
+                        return;
+
+                for (int i = 0; i < call_stack_depth; i++)
+                        printf(" ");
+
+                printf("Call: %s at " FMT_WORD "\n", target, dnpc);
+
+                if (call_stack_depth < CALL_FUNC_TIMES) {
+                        call_stack[call_stack_depth].pc = dnpc;
+                        call_stack[call_stack_depth].name = target;
+                        call_stack_depth++;
+                } else
+                        printf("Warning: Call stack overflow.\n");
+
+                return;
+        }
+
+        if (is_ret) {
+                if (call_stack_depth == 0) {
+                        return;
+                }
+
+                const char *current = get_symbol_name(pc);
+
+                call_stack_depth--;
+
+                for (int i = 0; i < call_stack_depth; i++)
+                        printf(" ");
+
+                if (current &&
+                    strcmp(call_stack[call_stack_depth - 1].name, current) == 0)
+                        printf("return: %s at " FMT_WORD "\n", current, pc);
+                else
+                        printf("return: %s at " FMT_WORD "\n",
+                               call_stack[call_stack_depth].name, pc);
+        }
+}
+
+static inline bool is_call_inst(uint32_t inst)
+{
+        uint32_t opcode = inst & 0x7f;
+
+        if (opcode != 0x6f && opcode != 0x67)
+                return false;
+
+        return ((inst >> 7) & 0x1f) != 0;
+}
+
+static inline bool is_ret_inst(uint32_t inst)
+{
+        return ((inst & 0x7f) == 0x67) && (((inst >> 7) & 0x1f) == 0) &&
+               (((inst >> 15) & 0x1f) == 1);
+}
+
+static void ftrace(vaddr_t pc, const Decode *s)
+{
+        bool is_call = is_call_inst(s->isa.inst);
+        bool is_ret = is_ret_inst(s->isa.inst);
+        ftrace_elf_start(pc, s->dnpc, is_call, is_ret);
+}
+
+#endif
+
 extern int update_wp();
-static void check_wp_updated()  {
+static void check_wp_updated()
+{
         if (update_wp() > 0)
                 nemu_state.state = NEMU_STOP;
 }
@@ -85,6 +195,7 @@ static void exec_once(Decode *s, vaddr_t pc)
         s->pc = pc;
         s->snpc = pc;
         isa_exec_once(s);
+        IFDEF(CONFIG_FTRACE, ftrace(pc, s));
         cpu.pc = s->dnpc;
 #ifdef CONFIG_ITRACE
         char *p = s->logbuf;

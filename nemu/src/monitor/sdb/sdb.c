@@ -18,9 +18,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <memory/vaddr.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "sdb.h"
 
 static int is_batch_mode = false;
@@ -64,7 +61,7 @@ static int cmd_si(char *args)
         int n = 1;
         if (args != NULL) {
                 if (sscanf(args, "%d", &n) < 1 || n < 1) {
-                        Log("Invalid argument: %s\n", args);
+                        printf("Invalid argument: %s\n", args);
                         return 0;
                 }
         }
@@ -75,7 +72,7 @@ static int cmd_si(char *args)
 static int cmd_info(char *args)
 {
         if (args == NULL) {
-                Log("Invalid argument: %s\n", args);
+                printf("Argument is NULL\n");
                 return -1;
         }
         if (strcmp(args, "r") == 0)
@@ -83,21 +80,21 @@ static int cmd_info(char *args)
         else if (strcmp(args, "w") == 0)
                 display_wp();
         else
-                Log("Unknown command '%s'\n", args);
+                printf("Unknown command '%s'\n", args);
         return 0;
 }
 
 static int cmd_x(char *args)
 {
         if (args == NULL) {
-                Log("Invalid argument: %s\n", args);
+                printf("Argument is NULL\n");
                 return 0;
         }
         char *count_str = strtok(args, " ");
         char *expr_str = strtok(NULL, " ");
 
         if (count_str == NULL || expr_str == NULL) {
-                Log("Invalid argument: %s\n", args);
+                printf("Invalid argument: %s\n", args);
                 return 0;
         }
 
@@ -107,7 +104,7 @@ static int cmd_x(char *args)
         word_t addr = expr(expr_str, &success);
 
         if (!success) {
-                Log("Invalid expressions: %s\n", expr_str);
+                printf("Invalid expressions: %s\n", expr_str);
                 return 0;
         }
 

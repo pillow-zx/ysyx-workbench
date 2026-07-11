@@ -19,7 +19,17 @@
 
 bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc)
 {
-        return false;
+        for (int i = 0; i < MUXDEF(CONFIG_REV, 16, 32); i++) {
+                if (!difftest_check_reg(reg_name(i), pc, ref_r->gpr[i],
+                                        cpu.gpr[i])) {
+                        return false;
+                }
+        }
+
+        if (!difftest_check_reg("pc", pc, ref_r->pc, cpu.pc))
+                return false;
+
+        return true;
 }
 
 void isa_difftest_attach()

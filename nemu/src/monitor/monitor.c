@@ -36,9 +36,6 @@ static void welcome()
         printf("Welcome to %s-NEMU!\n",
                ANSI_FMT(str(__GUEST_ISA__), ANSI_FG_YELLOW ANSI_BG_RED));
         printf("For help, type \"help\"\n");
-        /* Log("Exercise: Please remove me in the source code and compile NEMU " */
-        /*     "again."); */
-        /* assert(0); */
 }
 
 #ifndef CONFIG_TARGET_AM
@@ -74,6 +71,158 @@ static long load_img()
         return size;
 }
 
+#ifdef CONFIG_FTRACE
+FtraceELF elf = {};
+
+static void ftrace_elf_destroy(void)
+{
+        free(elf.strtab);
+        free(elf.symtab);
+        free(elf.shdr);
+        free(elf.ehdr);
+
+        elf.strtab = NULL;
+        elf.symtab = NULL;
+        elf.shdr = NULL;
+        elf.ehdr = NULL;
+        memset(&elf, 0, sizeof(elf));
+}
+
+static void ftrace_elf_init(void)
+{
+        FILE *fp = NULL;
+        size_t ret;
+        int found_symtab = 0;
+
+        if (elf.path == NULL) {
+                Log("No ftrace file is given.");
+                return;
+        }
+
+        fp = fopen(elf.path, "rb");
+        Assert(fp != NULL, "Cannot open '%s'", elf.path);
+
+        ftrace_elf_destroy();
+
+        elf.ehdr = malloc(sizeof(Elf32_Ehdr));
+        if (elf.ehdr == NULL) {
+                Log("No memory.");
+                goto cleanup;
+        }
+
+        ret = fread(elf.ehdr, sizeof(Elf32_Ehdr), 1, fp);
+        if (ret != 1) {
+                Log("Failed to read ELF header.");
+                goto cleanup;
+        }
+
+        if (elf.ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
+            elf.ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+            elf.ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
+            elf.ehdr->e_ident[EI_MAG3] != ELFMAG3) {
+                Log("Invalid ELF file.");
+                goto cleanup;
+        }
+
+        if (elf.ehdr->e_shoff == 0 || elf.ehdr->e_shnum == 0) {
+                Log("Invalid section header.");
+                goto cleanup;
+        }
+
+        if (fseek(fp, elf.ehdr->e_shoff, SEEK_SET) != 0) {
+                Log("fseek failed.");
+                goto cleanup;
+        }
+
+        elf.shdr = malloc(sizeof(Elf32_Shdr) * elf.ehdr->e_shnum);
+
+        if (elf.shdr == NULL) {
+                Log("No memory.");
+                goto cleanup;
+        }
+
+        ret = fread(elf.shdr, sizeof(Elf32_Shdr), elf.ehdr->e_shnum, fp);
+
+        if (ret != elf.ehdr->e_shnum) {
+                Log("Failed to read section headers.");
+                goto cleanup;
+        }
+
+        for (int i = 0; i < elf.ehdr->e_shnum; i++) {
+                if (elf.shdr[i].sh_type != SHT_SYMTAB)
+                        continue;
+
+                found_symtab = 1;
+
+                elf.symtab_num = elf.shdr[i].sh_size / sizeof(Elf32_Sym);
+
+                elf.symtab = malloc(elf.shdr[i].sh_size);
+
+                if (elf.symtab == NULL) {
+                        Log("No memory.");
+                        goto cleanup;
+                }
+
+                if (fseek(fp, elf.shdr[i].sh_offset, SEEK_SET) != 0) {
+                        Log("fseek failed.");
+                        goto cleanup;
+                }
+
+                ret = fread(elf.symtab, sizeof(Elf32_Sym), elf.symtab_num, fp);
+
+                if (ret != (size_t)elf.symtab_num) {
+                        Log("Failed to read symbol table.");
+                        goto cleanup;
+                }
+
+                int strtab_index = elf.shdr[i].sh_link;
+
+                if (strtab_index >= elf.ehdr->e_shnum) {
+                        Log("Invalid string table index.");
+                        goto cleanup;
+                }
+
+                elf.strtab = malloc(elf.shdr[strtab_index].sh_size);
+
+                if (elf.strtab == NULL) {
+                        Log("No memory.");
+                        goto cleanup;
+                }
+
+                if (fseek(fp, elf.shdr[strtab_index].sh_offset, SEEK_SET) !=
+                    0) {
+                        Log("fseek failed.");
+                        goto cleanup;
+                }
+
+                ret = fread(elf.strtab, 1, elf.shdr[strtab_index].sh_size, fp);
+
+                if (ret != elf.shdr[strtab_index].sh_size) {
+                        Log("Failed to read string table.");
+                        goto cleanup;
+                }
+
+                break;
+        }
+
+        if (!found_symtab) {
+                Log("No symbol table found.");
+                goto cleanup;
+        }
+
+        fclose(fp);
+        return;
+
+cleanup:
+
+        if (fp != NULL)
+                fclose(fp);
+
+        ftrace_elf_destroy();
+}
+
+#endif
+
 static int parse_args(int argc, char *argv[])
 {
         const struct option table[] = {
@@ -82,6 +231,7 @@ static int parse_args(int argc, char *argv[])
                 {"diff", required_argument, NULL, 'd'},
                 {"port", required_argument, NULL, 'p'},
                 {"help", no_argument, NULL, 'h'},
+                {"image", required_argument, NULL, 'i'},
                 {0, 0, NULL, 0},
         };
         int o;
@@ -99,6 +249,10 @@ static int parse_args(int argc, char *argv[])
                 case 'd':
                         diff_so_file = optarg;
                         break;
+                case 'i':
+                        IFDEF(CONFIG_FTRACE, elf.path = optarg,
+                              ftrace_elf_init());
+                        break;
                 case 1:
                         img_file = optarg;
                         return 0;
@@ -111,6 +265,8 @@ static int parse_args(int argc, char *argv[])
                                "FILE\n");
                         printf("\t-d,--diff=REF_SO        run DiffTest with "
                                "reference REF_SO\n");
+                        printf("\t-i,--image=FILE         load image from "
+                               "FILE\n"); //  从文件加载镜像
                         printf("\t-p,--port=PORT          run DiffTest with "
                                "port PORT\n");
                         printf("\n");

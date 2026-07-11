@@ -47,7 +47,7 @@ WP *new_wp(char *str, bool *success)
 {
         WP *wp = free_;
         free_ = free_->next;
-        strncpy(wp->str, str, strlen(str));
+        strcpy(wp->str, str);
         wp->str[strlen(str)] = '\0';
         wp->value = expr(str, success);
         wp->next = head;

@@ -28,14 +28,23 @@ void isa_reg_display()
                 word_t value = isa_reg_str2val(regs[i], &success);
                 printf("%-16s0x%-16x%d\n", regs[i], value, value);
         }
-        /* printf("%-16s0x%-16x%d\n", "mstatus", cpu.csr.mstatus, cpu.csr.mstatus); */
+        /* printf("%-16s0x%-16x%d\n", "mstatus", cpu.csr.mstatus,
+         * cpu.csr.mstatus); */
         /* printf("%-16s0x%-16x%d\n", "mtvec", cpu.csr.mtvec, cpu.csr.mtvec); */
         /* printf("%-16s0x%-16x%d\n", "mepc", cpu.csr.mepc, cpu.csr.mepc); */
-        /* printf("%-16s0x%-16x%d\n", "mcause", cpu.csr.mcause, cpu.csr.mcause); */
+        /* printf("%-16s0x%-16x%d\n", "mcause", cpu.csr.mcause, cpu.csr.mcause);
+         */
         /* printf("%-16s0x%-16x%d\n", "pc", cpu.pc, cpu.pc); */
 }
 
 word_t isa_reg_str2val(const char *s, bool *success)
 {
+        for (int i = 0; i < 32; i++) {
+                if (strcmp(s, regs[i]) == 0) {
+                        *success = true;
+                        return gpr(i);
+                }
+        }
+        *success = false;
         return 0;
 }

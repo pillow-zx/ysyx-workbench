@@ -30,6 +30,20 @@ extern int iringbuf_count;
 
 #endif
 
+#ifdef CONFIG_FTRACE
+#include <elf.h>
+typedef struct {
+        char *path;
+        Elf32_Ehdr *ehdr;
+        Elf32_Shdr *shdr;
+        Elf32_Sym *symtab;
+        char *strtab;
+        int symtab_num;
+} FtraceELF;
+
+extern FtraceELF elf;
+#endif
+
 #define Log(format, ...)                                                       \
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", __FILE__,          \
          __LINE__, __func__, ##__VA_ARGS__)
