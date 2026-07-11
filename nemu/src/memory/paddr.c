@@ -62,10 +62,19 @@ void init_mem()
             PMEM_RIGHT);
 }
 
+#ifdef CONFIG_MTRACE
+static void mtrace(char *str, paddr_t addr, int len)
+{
+        Log("func = %s addr =  0x%x, len = %d", str, addr, len);
+}
+#endif
+
 word_t paddr_read(paddr_t addr, int len)
 {
-        if (likely(in_pmem(addr)))
+        if (likely(in_pmem(addr))) {
+                IFDEF(CONFIG_MTRACE, mtrace("paddr_read", addr, len));
                 return pmem_read(addr, len);
+        }
         IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
         out_of_bound(addr);
         return 0;
@@ -74,6 +83,7 @@ word_t paddr_read(paddr_t addr, int len)
 void paddr_write(paddr_t addr, int len, word_t data)
 {
         if (likely(in_pmem(addr))) {
+                IFDEF(CONFIG_MTRACE, mtrace("paddr_write", addr, len));
                 pmem_write(addr, len, data);
                 return;
         }
