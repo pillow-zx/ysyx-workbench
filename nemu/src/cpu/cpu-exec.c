@@ -32,17 +32,52 @@ static bool g_print_step = false;
 
 void device_update();
 
+#ifdef CONFIG_ITRACE
+
+char iringbuf[IRINGBUF_SIZE][MAX_IRINGLOG_LEN] = {};
+int iringbuf_head = 0;
+int iringbuf_count = 0;
+
+static void iringbuf_write(Decode *s)
+{
+        if (s->logbuf[0] == '\0')
+                return;
+        snprintf(iringbuf[iringbuf_head], sizeof(iringbuf[0]), "%s", s->logbuf);
+        iringbuf_head = (iringbuf_head + 1) % IRINGBUF_SIZE;
+        if (iringbuf_count < IRINGBUF_SIZE)
+                iringbuf_count++;
+}
+
+static void iringbuf_show()
+{
+        Log("%s\n", iringbuf[iringbuf_head - 1]);
+        int start = (iringbuf_head - iringbuf_count + 64) % 64;
+        for (int i = 0; i < iringbuf_count; i++) {
+                int idx = (start + i) % 64;
+                Log("%s\n", iringbuf[idx]);
+        }
+}
+#endif
+
+extern int update_wp();
+static void check_wp_updated()  {
+        if (update_wp() > 0)
+                nemu_state.state = NEMU_STOP;
+}
+
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
 {
 #ifdef CONFIG_ITRACE_COND
         if (ITRACE_COND) {
                 log_write("%s\n", _this->logbuf);
+                IFDEF(CONFIG_ITRACE, iringbuf_write(_this));
         }
 #endif
         if (g_print_step) {
                 IFDEF(CONFIG_ITRACE, puts(_this->logbuf));
         }
         IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+        check_wp_updated();
 }
 
 static void exec_once(Decode *s, vaddr_t pc)
@@ -87,8 +122,11 @@ static void execute(uint64_t n)
                 exec_once(&s, cpu.pc);
                 g_nr_guest_inst++;
                 trace_and_difftest(&s, cpu.pc);
-                if (nemu_state.state != NEMU_RUNNING)
+                if (nemu_state.state != NEMU_RUNNING) {
+                        if (nemu_state.state == NEMU_STOP)
+                                printf("Touched watchpoint\n");
                         break;
+                }
                 IFDEF(CONFIG_DEVICE, device_update());
         }
 }
@@ -109,6 +147,7 @@ static void statistic()
 
 void assert_fail_msg()
 {
+        IFDEF(CONFIG_ITRACE, iringbuf_show());
         isa_reg_display();
         statistic();
 }

@@ -20,6 +20,16 @@
 #include <stdio.h>
 #include <utils.h>
 
+#ifdef CONFIG_ITRACE
+
+#define IRINGBUF_SIZE 64
+#define MAX_IRINGLOG_LEN 128
+extern char iringbuf[IRINGBUF_SIZE][MAX_IRINGLOG_LEN];
+extern int iringbuf_head;
+extern int iringbuf_count;
+
+#endif
+
 #define Log(format, ...)                                                       \
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", __FILE__,          \
          __LINE__, __func__, ##__VA_ARGS__)
