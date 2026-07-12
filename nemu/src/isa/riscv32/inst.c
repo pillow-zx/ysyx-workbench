@@ -13,14 +13,27 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-#include "local-include/reg.h"
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
 
+#include "../local-include/reg.h"
+
 #define R(i) gpr(i)
 #define Mr vaddr_read
 #define Mw vaddr_write
+#define CR csr_read
+#define CW csr_write
+
+static void NEMUMRET(Decode *s)
+{
+        s->dnpc = cpu.csr.mepc;
+        word_t mstatus = cpu.csr.mstatus;
+        word_t mpie = (mstatus >> 7) & 0x1;
+        mstatus = (mstatus & ~(1 << 3)) | (mpie << 3);
+        mstatus |= (1 << 7);
+        cpu.csr.mstatus = mstatus;
+}
 
 enum {
         TYPE_I,
@@ -140,6 +153,9 @@ static int decode_exec(Decode *s)
         INSTPAT("0100000 ????? ????? 101 ????? 01100 11", sra, R, R(rd) = (sword_t)src1 >> (src2 & 0x1f));
         INSTPAT("0000000 ????? ????? 101 ????? 01100 11", srl, R, R(rd) = src1 >> (src2 & 0x1f));
         INSTPAT("0000000 ????? ????? 001 ????? 01100 11", sll, R, R(rd) = src1 << (src2 & 0x1f));
+        INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw, I, word_t t = CR(imm); CW(imm, src1); R(rd) = t);
+        INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs, I, word_t t = CR(imm); CW(imm, CR(imm) | src1); R(rd) = t);
+        INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc, I, word_t t = CR(imm); CW(imm, CR(imm) & ~src1); R(rd) = t);
         INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall, I, s->dnpc = isa_raise_intr(11, s->pc));
         INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu, I, R(rd) = Mr(src1 + imm, 1));
         INSTPAT("??????? ????? ????? 000 ????? 00100 11", addi, I, R(rd) = src1 + imm);
@@ -168,7 +184,8 @@ static int decode_exec(Decode *s)
         INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc, U, R(rd) = s->pc + imm);
         INSTPAT("??????? ????? ????? ??? ????? 01101 11", lui, U, R(rd) = imm);
         INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal, J, R(rd) = s->dnpc, s->dnpc = s->pc + imm);
-        INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak, N, NEMUTRAP(s->pc, R(10)));  // ebreak: environment break
+        INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak, N, NEMUTRAP(s->pc, R(10)));
+        INSTPAT("0011000 00010 00000 000 00000 11100 11", mret, N, NEMUMRET(s));
         INSTPAT_END();
 
         R(0) = 0; // reset $zero to 0

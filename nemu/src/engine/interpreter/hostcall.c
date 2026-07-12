@@ -26,6 +26,42 @@ void set_nemu_state(int state, vaddr_t pc, int halt_ret)
         nemu_state.halt_ret = halt_ret;
 }
 
+word_t csr_read(word_t csr)
+{
+        switch (csr) {
+        case CSR_MSTATUS:
+                return cpu.csr.mstatus;
+        case CSR_MTVEC:
+                return cpu.csr.mtvec;
+        case CSR_MEPC:
+                return cpu.csr.mepc;
+        case CSR_MCAUSE:
+                return cpu.csr.mcause;
+        default:
+                panic("Error: Unsupported CSR read at 0x%x\n", csr);
+        }
+}
+
+void csr_write(word_t csr, word_t val)
+{
+        switch (csr) {
+        case CSR_MSTATUS:
+                cpu.csr.mstatus = val;
+                break;
+        case CSR_MTVEC:
+                cpu.csr.mtvec = val;
+                break;
+        case CSR_MEPC:
+                cpu.csr.mepc = val;
+                break;
+        case CSR_MCAUSE:
+                cpu.csr.mcause = val;
+                break;
+        default:
+                panic("Error: Unsupported CSR write at 0x%x\n", csr);
+        }
+}
+
 __attribute__((noinline)) void invalid_inst(vaddr_t thispc)
 {
         uint32_t temp[2];
@@ -46,7 +82,7 @@ __attribute__((noinline)) void invalid_inst(vaddr_t thispc)
                "2. Something is implemented incorrectly.\n",
                thispc);
         printf("Find this PC(" FMT_WORD ") in the disassembling result to "
-                                        "distinguish which case it is.\n\n",
+               "distinguish which case it is.\n\n",
                thispc);
         printf(ANSI_FMT(
                        "If it is the first case, see\n%s\nfor more details.\n\n"

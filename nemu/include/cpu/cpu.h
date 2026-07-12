@@ -26,4 +26,7 @@ void invalid_inst(vaddr_t thispc);
 #define NEMUTRAP(thispc, code) set_nemu_state(NEMU_END, thispc, code)
 #define INV(thispc) invalid_inst(thispc)
 
+word_t csr_read(word_t csr);
+void csr_write(word_t csr, word_t val);
+
 #endif
