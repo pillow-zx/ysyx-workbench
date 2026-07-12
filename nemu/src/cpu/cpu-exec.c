@@ -168,12 +168,43 @@ static void ftrace(vaddr_t pc, const Decode *s)
 
 #endif
 
+#ifdef CONFIG_DTRACE
+#define INRANGE(pc, start, end) ((pc) >= (start) && (pc) < (end))
+
+static void dtrace(vaddr_t pc)
+{
+        if (nemu_state.state != NEMU_RUNNING)
+                return;
+
+        if (INRANGE(pc, CONFIG_SERIAL_MMIO, CONFIG_SERIAL_MMIO + 8)) {
+                printf("dtrace: serial port access at " FMT_WORD, pc);
+        } else if (INRANGE(pc, CONFIG_DISK_CTL_MMIO,
+                           CONFIG_DISK_CTL_MMIO + 8)) {
+                printf("dtrace: disk control port access at " FMT_WORD, pc);
+        } else if (INRANGE(pc, CONFIG_VGA_CTL_MMIO, CONFIG_VGA_CTL_MMIO + 8)) {
+                printf("dtrace: VGA control port access at " FMT_WORD, pc);
+        } else if (INRANGE(pc, CONFIG_I8042_DATA_MMIO,
+                           CONFIG_I8042_DATA_MMIO + 8)) {
+                printf("dtrace: i8042 data port access at " FMT_WORD, pc);
+        } else if (INRANGE(pc, CONFIG_AUDIO_CTL_MMIO,
+                           CONFIG_AUDIO_CTL_MMIO + 8)) {
+                printf("dtrace: audio control port access at " FMT_WORD, pc);
+        } else if (INRANGE(pc, CONFIG_RTC_MMIO, CONFIG_RTC_MMIO + 8)) {
+                printf("dtrace: RTC port access at " FMT_WORD, pc);
+        } else {
+        }
+}
+
+#endif
+
+#ifdef CONFIG_WATCHPOINT
 extern int update_wp();
 static void check_wp_updated()
 {
         if (update_wp() > 0)
                 nemu_state.state = NEMU_STOP;
 }
+#endif
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
 {
@@ -187,7 +218,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
                 IFDEF(CONFIG_ITRACE, puts(_this->logbuf));
         }
         IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
-        check_wp_updated();
+        IFDEF(CONFIG_WATCHPOINT, check_wp_updated());
 }
 
 static void exec_once(Decode *s, vaddr_t pc)
@@ -195,6 +226,7 @@ static void exec_once(Decode *s, vaddr_t pc)
         s->pc = pc;
         s->snpc = pc;
         isa_exec_once(s);
+        IFDEF(CONFIG_DTRACE, dtrace(pc));
         IFDEF(CONFIG_FTRACE, ftrace(pc, s));
         cpu.pc = s->dnpc;
 #ifdef CONFIG_ITRACE

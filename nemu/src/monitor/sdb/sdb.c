@@ -22,8 +22,13 @@
 
 static int is_batch_mode = false;
 
+#ifdef CONFIG_SDB
 void init_regex();
+#endif
+
+#ifdef CONFIG_WATCHPOINT
 void init_wp_pool();
+#endif
 
 /* We use the `readline' library to provide more flexibility to read from stdin.
  */
@@ -56,6 +61,8 @@ static int cmd_q(char *args)
         return -1;
 }
 
+#ifdef CONFIG_SDB
+
 static int cmd_si(char *args)
 {
         int n = 1;
@@ -78,7 +85,8 @@ static int cmd_info(char *args)
         if (strcmp(args, "r") == 0)
                 isa_reg_display();
         else if (strcmp(args, "w") == 0)
-                display_wp();
+                MUXDEF(CONFIG_WATCHPOINT, display_wp(),
+                       printf("Not enable watchpoint"));
         else
                 printf("Unknown command '%s'\n", args);
         return 0;
@@ -131,18 +139,29 @@ static int cmd_p(char *args)
 
 static int cmd_w(char *args)
 {
-        add_wp(args);
+        MUXDEF(CONFIG_WATCHPOINT, add_wp(args),
+               printf("Not enable watchpoint"));
         return 0;
 }
 
-static int cmd_d(char *args)
+#ifdef CONFIG_WATCHPOINT
+static int cmd_d_helper(char *args)
 {
         word_t value;
         if (sscanf(args, "%u", &value) < 1) {
                 printf("Invalid argument: %s\n", args);
         }
-        delete_wp(value);
+        IFDEF(CONFIG_WATCHPOINT, delete_wp(value),
+              printf("Not enable watchpoint"));
         return 0;
+}
+#endif
+
+static int cmd_d(char *args)
+{
+        return MUXDEF(CONFIG_WATCHPOINT, cmd_d_helper(args),
+                      printf("Not enable watchpoint");
+                      return 0);
 }
 
 static int cmd_clr(char *args)
@@ -192,6 +211,8 @@ static int cmd_test(char *args)
         return 0;
 }
 
+#endif
+
 static int cmd_help(char *args);
 
 static struct {
@@ -204,6 +225,7 @@ static struct {
         {"q", "Exit NEMU", cmd_q},
 
         /* TODO: Add more commands */
+#ifdef CONFIG_SDB
         {"si", "Step into the program", cmd_si},
         {"info", "Show information about registers", cmd_info},
         {"x", "Examine memory", cmd_x},
@@ -212,6 +234,7 @@ static struct {
         {"d", "Delete watchpoint", cmd_d},
         {"clear", "Clean screen", cmd_clr},
         {"test", "Run test for expression", cmd_test},
+#endif
 };
 
 #define NR_CMD ARRLEN(cmd_table)
@@ -295,8 +318,8 @@ void sdb_mainloop()
 void init_sdb()
 {
         /* Compile the regular expressions. */
-        init_regex();
+        IFDEF(CONFIG_SDB, init_regex());
 
         /* Initialize the watchpoint pool. */
-        init_wp_pool();
+        IFDEF(CONFIG_WATCHPOINT, init_wp_pool());
 }

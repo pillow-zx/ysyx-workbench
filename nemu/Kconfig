@@ -161,6 +161,21 @@ config FTRACE
   bool "Enable ftrace tracer"
   default n
 
+config DTRACE
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable dtrace tracer"
+  default n
+
+config SDB
+  depends on TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable SDB(NEMU GDB)"
+  default n
+
+config WATCHPOINT
+  depends on SDB && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable watchpoint support"
+  default n
+
 config DIFFTEST
   depends on TARGET_NATIVE_ELF
   bool "Enable differential testing"

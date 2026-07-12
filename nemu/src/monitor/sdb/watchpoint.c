@@ -15,6 +15,8 @@
 
 #include "sdb.h"
 
+#ifdef CONFIG_WATCHPOINT
+
 #define NR_WP 32
 #define MAX_EXPR_LEN 64
 
@@ -97,12 +99,12 @@ void delete_wp(word_t position)
 void display_wp()
 {
         if (head == NULL) {
-                Log("No watchpoint set.\n");
+                printf("No watchpoint set.\n");
                 return;
         }
         WP *temp = head;
         while (temp) {
-                Log("Watchpoint %d: %s, value: %u\n", temp->NO, temp->str,
+                printf("Watchpoint %d: %s, value: %u\n", temp->NO, temp->str,
                     temp->value);
                 temp = temp->next;
         }
@@ -127,3 +129,5 @@ int update_wp()
         }
         return is_changed;
 }
+
+#endif

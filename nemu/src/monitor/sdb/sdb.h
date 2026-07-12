@@ -16,12 +16,18 @@
 #ifndef __SDB_H__
 #define __SDB_H__
 
+
 #include <common.h>
 
+#ifdef CONFIG_SDB
 word_t expr(char *e, bool *success);
 
+#ifdef CONFIG_WATCHPOINT
 void add_wp(char *str);
 void delete_wp(word_t position);
 void display_wp();
+#endif
+
+#endif
 
 #endif

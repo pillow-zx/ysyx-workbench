@@ -15,12 +15,13 @@
 
 #include <isa.h>
 
+#ifdef CONFIG_SDB
+
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <limits.h>
 #include <regex.h>
-#include <stdbool.h>
 #include <memory/vaddr.h>
 
 enum {
@@ -372,3 +373,5 @@ word_t expr(char *e, bool *success)
 
         return result;
 }
+
+#endif
