@@ -166,6 +166,11 @@ config DTRACE
   bool "Enable dtrace tracer"
   default n
 
+config ETRACE
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable etrace tracer"
+  default n
+
 config SDB
   depends on TARGET_NATIVE_ELF && ENGINE_INTERPRETER
   bool "Enable SDB(NEMU GDB)"
