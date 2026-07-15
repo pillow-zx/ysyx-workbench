@@ -11,7 +11,8 @@ Contents at a glance:
 * `Makefile` - rules to call mill
 * `src/GCD.scala` - GCD source file
 * `src/DecoupledGCD.scala` - another GCD source file
-* `src/Elaborate.scala` - wrapper file to call chisel command with the GCD module
+* `src/npc/Elaborate.scala` - emits SystemVerilog for the `Core` module
+* `test/src/NpcUnitSpec.scala` - unit tests for branch, decode, and CSR behavior
 * `test/src/GCDSpec.scala` - GCD tester
 
 Feel free to rename or delete files under `src/` and `test/` or use them as a reference/template.

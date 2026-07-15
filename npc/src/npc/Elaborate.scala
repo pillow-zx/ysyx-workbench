@@ -1,14 +1,18 @@
+package npc
+
+import circt.stage.ChiselStage
+import npc.core.Core
+
 object Elaborate extends App {
-  val firtoolOptions = Array(
+  private val firtoolOption = Array(
     "--default-layer-specialization=enable",
     "--verification-flavor=immediate",
     "--lowering-options=" + List(
-      // make yosys happy
-      // see https://github.com/llvm/circt/blob/main/docs/VerilogGeneration.md
       "disallowLocalVariables",
       "disallowPackedArrays",
       "locationInfoStyle=wrapInAtSquareBracket"
-    ).reduce(_ + "," + _)
+    ).mkString(",")
   )
-  circt.stage.ChiselStage.emitSystemVerilogFile(new gcd.GCD(), args, firtoolOptions)
+
+  ChiselStage.emitSystemVerilogFile(new Core, args, firtoolOption)
 }

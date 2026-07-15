@@ -10,18 +10,18 @@ import mill.scalalib._
 object `package` extends ScalaModule with ScalafmtModule { m =>
   override def scalaVersion = "2.13.18"
 
-  override def scalacOptions = Seq(
+  override def scalacOptions: T[Seq[String]] = Seq(
     "-language:reflectiveCalls",
     "-deprecation",
     "-feature",
     "-Xcheckinit"
   )
 
-  override def mvnDeps             = Seq(mvn"org.chipsalliance::chisel:7.7.0")
-  override def scalacPluginMvnDeps = Seq(mvn"org.chipsalliance:::chisel-plugin:7.7.0")
+  override def mvnDeps: T[Seq[Dep]] = Seq(mvn"org.chipsalliance::chisel:7.7.0")
+  override def scalacPluginMvnDeps: T[Seq[Dep]] = Seq(mvn"org.chipsalliance:::chisel-plugin:7.7.0")
 
   object test extends ScalaTests with TestModule.ScalaTest with ScalafmtModule {
-    override def mvnDeps = m.mvnDeps() ++ Seq(
+    override def mvnDeps: T[Seq[Dep]] = m.mvnDeps() ++ Seq(
       mvn"org.scalatest::scalatest::3.2.19",
     )
   }

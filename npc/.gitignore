@@ -2,12 +2,14 @@
 *
 !*/
 !Makefile
+!CMakeLists.txt
 !*.mk
 !*.scala
 !*.[cSh]
 !*.v
 !*.cpp
 !*.cc
+!*.hh
 !.gitignore
 !.scalafmt.conf
 !README.md
