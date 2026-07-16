@@ -8,7 +8,6 @@
 
 enum class NpcStatus {
     Running,
-    Stop,
     Exit,
 };
 

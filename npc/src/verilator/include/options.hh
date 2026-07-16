@@ -4,11 +4,13 @@
 #include <optional>
 #include <string>
 
+#include "generated/autoconfig.hh"
+
 struct NpcOptions {
     std::string image;
     std::optional<std::string> log;
     std::optional<std::string> elf;
-    bool batch = false;
+    bool batch = config::args::batch;
 };
 
 auto parseOptions(int argc, char *argv[]) -> NpcOptions;

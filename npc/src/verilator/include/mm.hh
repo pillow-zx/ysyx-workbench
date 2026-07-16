@@ -8,9 +8,11 @@
 
 class Memory {
 public:
+    [[nodiscard]] static auto getBaseAddress() -> std::size_t;
+
     [[nodiscard]] static auto init(const std::string &filename) -> bool;
 
-    [[nodiscard]] static auto getMemory() -> const std::vector<std::uint8_t> &;
+    [[nodiscard]] static auto getMemory() -> std::vector<uint8_t> &;
 
     [[nodiscard]] static auto fetchInst(std::uint32_t addr) -> std::uint32_t;
 
@@ -37,7 +39,7 @@ private:
     [[nodiscard]] static auto loadProgram(const std::string &filename = "") -> bool;
 };
 
-inline auto Memory::getMemory() -> const std::vector<std::uint8_t> & {
+inline auto Memory::getMemory() -> std::vector<uint8_t> & {
     return memory;
 }
 

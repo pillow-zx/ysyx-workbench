@@ -5,6 +5,10 @@
 
 #include <mm.hh>
 
+auto Memory::getBaseAddress() -> std::size_t {
+    return MEMORYSTART;
+}
+
 auto Memory::init(const std::string &filename) -> bool {
     std::fill(memory.begin(), memory.end(), 0);
     return loadProgram(filename);

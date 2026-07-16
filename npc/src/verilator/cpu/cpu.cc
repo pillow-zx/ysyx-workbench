@@ -2,6 +2,8 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
+#include <dlfcn.h>
+#include <generated/autoconfig.hh>
 #include <algorithm>
 #include <cstring>
 #include <elf.h>
@@ -14,33 +16,20 @@
 #include <vector>
 #include <iomanip>
 #include <iostream>
-
 #include <cpu.hh>
 #include <disassembler.hh>
-
-template<typename T>
-[[nodiscard]] static auto readElfObject(
-    const std::vector<char> &data,
-    const std::size_t offset
-) -> T {
-    if (offset > data.size() || sizeof(T) > data.size() - offset) {
-        throw std::runtime_error("ELF object is outside file bounds");
-    }
-
-    T object{};
-    std::memcpy(&object, data.data() + offset, sizeof(T));
-    return object;
-}
+#include <sys/stat.h>
 
 class Cpu::Impl {
 public:
+    // add [[maybe_unused]] to disable compiler warning
     struct Commit {
-        bool valid;
-        bool trap;
-        bool isEbreak;
-        std::uint32_t pc;
-        std::uint32_t nextPc;
-        std::uint32_t inst;
+        [[maybe_unused]] bool valid;
+        [[maybe_unused]] bool trap;
+        [[maybe_unused]] bool isEbreak;
+        [[maybe_unused]] std::uint32_t pc;
+        [[maybe_unused]] std::uint32_t nextPc;
+        [[maybe_unused]] std::uint32_t inst;
     };
 
     Impl(const int argc, char *argv[]) : top(&context) {
@@ -166,10 +155,11 @@ private:
         std::string name;
     };
 
+    // add [[maybe_unused]] to disable compiler warning
     struct CallFrame {
-        std::uint32_t callPc;
-        std::uint32_t targetPc;
-        std::string functionName;
+        [[maybe_unused]] std::uint32_t callPc;
+        [[maybe_unused]] std::uint32_t targetPc;
+        [[maybe_unused]] std::string functionName;
     };
 
     std::vector<FunctionSymbol> functionSymbols_;
@@ -245,6 +235,20 @@ private:
         const std::uint64_t size
     ) -> bool {
         return offset <= fileSize && size <= fileSize - offset;
+    }
+
+    template<typename T>
+    [[nodiscard]] static auto readElfObject(
+        const std::vector<char> &data,
+        const std::size_t offset
+    ) -> T {
+        if (offset > data.size() || sizeof(T) > data.size() - offset) {
+            throw std::runtime_error("ELF object is outside file bounds");
+        }
+
+        T object{};
+        std::memcpy(&object, data.data() + offset, sizeof(T));
+        return object;
     }
 
     [[nodiscard]] static auto readElfString(
@@ -501,9 +505,116 @@ private:
     }
 };
 
+class Cpu::DiffTest {
+public:
+    using InitFunc = void (*)(int);
+    using MemcpyFunc = void (*)(std::uint32_t, void *, std::size_t, bool);
+    using RegcpyFunc = void (*)(void *, bool);
+    using ExecFunc = void (*)(std::uint64_t);
+
+    explicit DiffTest() {
+        handle_ = dlopen(soPath_, RTLD_NOW);
+        if (!handle_) {
+            throw std::runtime_error(dlerror());
+        }
+        init_ = load<InitFunc>("difftest_init");
+        memcpy_ = load<MemcpyFunc>("difftest_memcpy");
+        regcpy_ = load<RegcpyFunc>("difftest_regcpy");
+        exec_ = load<ExecFunc>("difftest_exec");
+
+        init_(port_);
+    }
+
+    ~DiffTest() {
+        if (handle_) {
+            dlclose(handle_);
+        }
+    }
+
+    auto copyMemory(const std::uint32_t addr, const void *buffer, const std::size_t size) const -> void {
+        memcpy(addr, const_cast<void *>(buffer), size, ToRef);
+    }
+
+    auto copyRegisters(const void *state, const bool direction) const -> void {
+        regcpy(const_cast<void *>(state), direction);
+    }
+
+    auto step(const std::uint64_t n) const -> void {
+        exec(n);
+    }
+
+    [[nodiscard]] auto check(const std::vector<std::uint32_t> &dutRegs, const std::uint32_t dutPc) const -> bool {
+        std::array<std::uint32_t, REGNUM + 1> refState{};
+        regcpy(refState.data(), false);
+        for (std::size_t index = 0; index < REGNUM; ++index) {
+            if (dutRegs.at(index) != refState.at(index)) {
+                std::cout
+                        << "Difftest failed at "
+                        << registerNames[index]
+                        << "(x" << index << ")"
+                        << ": DUT=0x" << std::hex << dutRegs[index]
+                        << ", REF=0x" << refState[index]
+                        << ", DUT PC=0x" << dutPc
+                        << '\n';
+                return false;
+            }
+        }
+
+        if (const auto refPc = refState[REGNUM]; dutPc != refPc) {
+            std::cout
+                    << "Difftest failed at PC"
+                    << ": DUT=0x" << std::hex << dutPc
+                    << ", REF=0x" << refPc
+                    << '\n';
+            return false;
+        }
+
+        return true;
+    }
+
+private:
+    template<typename T>
+    T load(const char *name) {
+        dlerror();
+        auto p = reinterpret_cast<T>(dlsym(handle_, name));
+        if (const char *err = dlerror()) {
+            throw std::runtime_error(err);
+        }
+        return p;
+    }
+
+    void *handle_ = nullptr;
+    InitFunc init_;
+    MemcpyFunc memcpy_;
+    RegcpyFunc regcpy_;
+    ExecFunc exec_;
+
+    static constexpr bool ToDut = false;
+    static constexpr bool ToRef = true;
+
+    //init 函数参数，此处仅为了保证接口统一，无意义
+    constexpr static int port_ = 0;
+
+    const char *soPath_ = "src/verilator/libs/nemu.so";
+
+    [[maybe_unused]]
+    auto memcpy(const std::uint32_t addr, void *buf, const std::size_t n, const bool dir) const -> void {
+        memcpy_(addr, buf, n, dir);
+    }
+
+    auto regcpy(void *regs, const bool dir) const -> void {
+        regcpy_(regs, dir);
+    }
+
+    auto exec(const std::uint64_t n) const -> void {
+        exec_(n);
+    }
+};
+
 Cpu::Cpu(const int argc, char *argv[], const std::optional<std::string> &itracePath,
          const std::optional<std::string> &elfPath)
-    : impl(std::make_unique<Impl>(argc, argv)), trace(std::make_unique<Trace>(itracePath, elfPath)) {
+    : impl(std::make_unique<Impl>(argc, argv)), trace(std::make_unique<Trace>(itracePath, elfPath)),
+      diff(std::make_unique<DiffTest>()) {
 }
 
 Cpu::~Cpu() = default;
@@ -514,6 +625,13 @@ auto Cpu::reset() const -> void {
     impl->execOnce();
 
     impl->top.reset = 0;
+}
+
+auto Cpu::initDifftest(const std::uint32_t memoryBase, const std::vector<std::uint8_t> &memory) const -> void {
+    diff->copyMemory(memoryBase, memory.data(), memory.size());
+    auto state = getAllRegs();
+    state.push_back(getPc());
+    diff->copyRegisters(state.data(), true);
 }
 
 auto Cpu::exec(const std::optional<std::size_t> cycles) const -> bool {
@@ -528,6 +646,12 @@ auto Cpu::exec(const std::optional<std::size_t> cycles) const -> bool {
             if constexpr (config::trace::ftrace) {
                 if (!trap) {
                     trace->ftrace(pc, nextPc, inst);
+                }
+            }
+            if constexpr (config::difftest::difftest) {
+                diff->step(1);
+                if (const auto hostRegs = std::move(getAllRegs()); !diff->check(hostRegs, getPc())) {
+                    throw std::runtime_error("Difftest Failed;");
                 }
             }
         }
@@ -557,6 +681,14 @@ auto Cpu::getReg(const std::size_t index) const -> std::uint32_t {
         throw std::out_of_range("register index out of range");
     }
     return registers[index];
+}
+
+auto Cpu::getAllRegs() const -> std::vector<std::uint32_t> {
+    auto allRegs = std::vector<std::uint32_t>(REGNUM, 0);
+    for (std::size_t i = 0; i < REGNUM; ++i) {
+        allRegs[i] = getReg(i);
+    }
+    return allRegs;
 }
 
 auto Cpu::getPc() const -> std::uint32_t {

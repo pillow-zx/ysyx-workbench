@@ -13,6 +13,8 @@ Npc::Npc(const int argc, char *argv[], const NpcOptions &options)
         return;
     }
     cpu.reset();
+
+    cpu.initDifftest(Memory::getBaseAddress(), Memory::getMemory());
 }
 
 auto Npc::executeCpu() -> void {

@@ -2,6 +2,9 @@
 itrace = true
 ftrace = false
 
+[difftest]
+difftest = true
+
 [devices]
 
 [args]

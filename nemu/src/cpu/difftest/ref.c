@@ -20,17 +20,33 @@
 
 __EXPORT void difftest_memcpy(paddr_t addr, void *buf, size_t n, bool direction)
 {
-        assert(0);
+        if (direction == DIFFTEST_TO_REF) {
+                memcpy(guest_to_host(addr), buf, n);
+        } else {
+                memcpy(buf, guest_to_host(addr), n);
+        }
 }
 
 __EXPORT void difftest_regcpy(void *dut, bool direction)
 {
-        assert(0);
+        RISCV_GPR_TYPE *regs = (RISCV_GPR_TYPE *)dut;
+
+        if (direction == DIFFTEST_TO_REF) {
+                for (int i = 0; i < RISCV_GPR_NUM; i++) {
+                        cpu.gpr[i] = regs[i];
+                }
+                cpu.pc = regs[RISCV_GPR_NUM];
+        } else {
+                for (int i = 0; i < RISCV_GPR_NUM; i++) {
+                        regs[i] = cpu.gpr[i];
+                }
+                regs[RISCV_GPR_NUM] = cpu.pc;
+        }
 }
 
 __EXPORT void difftest_exec(uint64_t n)
 {
-        assert(0);
+        cpu_exec(n);
 }
 
 __EXPORT void difftest_raise_intr(word_t NO)
