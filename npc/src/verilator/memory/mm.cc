@@ -2,15 +2,36 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-
+#include <print>
 #include <mm.hh>
+#include <utility>
+
+#include "generated/autoconfig.hh"
+
+enum class MemoryOperation {
+    Read,
+    Write,
+};
 
 auto Memory::getBaseAddress() -> std::size_t {
     return MEMORYSTART;
 }
 
+constexpr auto toString(const MemoryOperation op) -> std::string_view {
+    switch (op) {
+        case MemoryOperation::Read: return "READ";
+        case MemoryOperation::Write: return "Write";
+        default: return "Unsupported Operation";
+    }
+    std::unreachable();
+}
+
+inline auto mtrace(MemoryOperation op, std::uint32_t addr, std::uint32_t len, std::uint32_t data) -> void {
+    std::println("[MTRACE] {:<5} addr={:#010x} len={} data={:#010x}", toString(op), addr, len, data);
+}
+
 auto Memory::init(const std::string &filename) -> bool {
-    std::fill(memory.begin(), memory.end(), 0);
+    std::ranges::fill(memory, 0);
     return loadProgram(filename);
 }
 
@@ -23,15 +44,19 @@ auto Memory::readData(const std::uint32_t addr, const std::uint32_t size) -> std
         return 0;
     }
 
-    const auto offset = static_cast<std::size_t>(addr - MEMORYSTART);
+    const auto offset = addr - MEMORYSTART;
     if (offset > MEMORYSIZE || size > MEMORYSIZE - offset) {
         return 0;
     }
-
     std::uint32_t data = 0;
     for (std::size_t index = 0; index < size; ++index) {
         data |= static_cast<std::uint32_t>(memory[offset + index]) << (index * 8);
     }
+
+    if constexpr (config::trace::mtrace) {
+        mtrace(MemoryOperation::Read, addr, size, data);
+    }
+
     return data;
 }
 
@@ -40,7 +65,13 @@ auto Memory::writeData(const std::uint32_t addr, const std::uint32_t data, const
         return;
     }
 
-    const auto offset = static_cast<std::size_t>(addr - MEMORYSTART);
+    if constexpr (config::trace::mtrace) {
+        const auto first = std::countr_zero(wmask);
+        const auto len = std::popcount(wmask);
+        mtrace(MemoryOperation::Write, addr + first, len, data >> (first * 8));
+    }
+
+    const auto offset = addr - MEMORYSTART;
     for (std::size_t lane = 0; lane < sizeof(std::uint32_t); ++lane) {
         if ((wmask & (1U << lane)) == 0 || offset + lane >= MEMORYSIZE) {
             continue;

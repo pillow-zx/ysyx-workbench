@@ -18,7 +18,6 @@
 #include <iostream>
 #include <cpu.hh>
 #include <disassembler.hh>
-#include <sys/stat.h>
 
 class Cpu::Impl {
 public:
@@ -282,23 +281,16 @@ private:
     }
 
     auto normalizeFunctionSymbols() -> void {
-        std::sort(
-            functionSymbols_.begin(),
-            functionSymbols_.end(),
-            [](const FunctionSymbol &lhs, const FunctionSymbol &rhs) {
-                if (lhs.begin != rhs.begin) {
-                    return lhs.begin < rhs.begin;
-                }
-
-                return lhs.end > rhs.end;
-            }
+        std::ranges::sort(functionSymbols_,
+                          [](const FunctionSymbol &lhs, const FunctionSymbol &rhs) {
+                              if (lhs.begin != rhs.begin) {
+                                  return lhs.begin < rhs.begin;
+                              }
+                              return lhs.end > rhs.end;
+                          }
         );
 
-        for (
-            std::size_t index = 0;
-            index < functionSymbols_.size();
-            ++index
-        ) {
+        for (std::size_t index = 0; index < functionSymbols_.size(); ++index) {
             FunctionSymbol &symbol = functionSymbols_[index];
 
             if (symbol.end > symbol.begin) {
@@ -307,10 +299,7 @@ private:
 
             auto nextIndex = index + 1;
 
-            while (
-                nextIndex < functionSymbols_.size() &&
-                functionSymbols_[nextIndex].begin == symbol.begin
-            ) {
+            while (nextIndex < functionSymbols_.size() && functionSymbols_[nextIndex].begin == symbol.begin) {
                 ++nextIndex;
             }
 
@@ -381,9 +370,7 @@ private:
                 throw std::runtime_error("Invalid ELF section index");
             }
 
-            const std::uint64_t offset =
-                    static_cast<std::uint64_t>(elfHeader.e_shoff) +
-                    index * elfHeader.e_shentsize;
+            const std::uint64_t offset = static_cast<std::uint64_t>(elfHeader.e_shoff) + index * elfHeader.e_shentsize;
 
             return readElfObject<Elf32_Shdr>(
                 elfData,
@@ -401,55 +388,31 @@ private:
                 continue;
             }
 
-            if (
-                symbolTable.sh_entsize < sizeof(Elf32_Sym) ||
-                symbolTable.sh_entsize == 0
-            ) {
+            if (symbolTable.sh_entsize < sizeof(Elf32_Sym) || symbolTable.sh_entsize == 0) {
                 throw std::runtime_error("Invalid ELF symbol table entry size");
             }
 
             if (symbolTable.sh_link >= elfHeader.e_shnum) {
-                throw std::runtime_error(
-                    "ELF symbol table has invalid string table index"
-                );
+                throw std::runtime_error("ELF symbol table has invalid string table index");
             }
 
             const Elf32_Shdr stringTable = readSection(symbolTable.sh_link);
 
             if (stringTable.sh_type != SHT_STRTAB) {
-                throw std::runtime_error(
-                    "ELF symbol table does not reference a string table"
-                );
+                throw std::runtime_error("ELF symbol table does not reference a string table");
             }
 
-            if (
-                !validRange(
-                    elfData.size(),
-                    symbolTable.sh_offset,
-                    symbolTable.sh_size
-                ) ||
-                !validRange(
-                    elfData.size(),
-                    stringTable.sh_offset,
-                    stringTable.sh_size
-                )
-            ) {
-                throw std::runtime_error(
-                    "ELF symbol or string table is outside file bounds"
-                );
+            if (!validRange(elfData.size(), symbolTable.sh_offset, symbolTable.sh_size) ||
+                !validRange(elfData.size(), stringTable.sh_offset, stringTable.sh_size)) {
+                throw std::runtime_error("ELF symbol or string table is outside file bounds");
             }
 
             const std::size_t symbolCount = symbolTable.sh_size / symbolTable.sh_entsize;
 
 
-            for (
-                std::size_t symbolIndex = 0;
-                symbolIndex < symbolCount;
-                ++symbolIndex
-            ) {
+            for (std::size_t symbolIndex = 0; symbolIndex < symbolCount; ++symbolIndex) {
                 const std::uint64_t symbolOffset =
-                        static_cast<std::uint64_t>(symbolTable.sh_offset) +
-                        symbolIndex * symbolTable.sh_entsize;
+                        static_cast<std::uint64_t>(symbolTable.sh_offset) + symbolIndex * symbolTable.sh_entsize;
 
                 const Elf32_Sym symbol = readElfObject<Elf32_Sym>(
                     elfData,
@@ -460,15 +423,11 @@ private:
                     continue;
                 }
 
-                if (
-                    symbol.st_shndx == SHN_UNDEF ||
-                    symbol.st_name == 0
-                ) {
+                if (symbol.st_shndx == SHN_UNDEF || symbol.st_name == 0) {
                     continue;
                 }
 
-                const std::string name =
-                        readElfString(elfData, stringTable, symbol.st_name);
+                const std::string name = readElfString(elfData, stringTable, symbol.st_name);
 
                 if (name.empty()) {
                     continue;
@@ -478,20 +437,13 @@ private:
                 const std::uint64_t end =
                         begin + static_cast<std::uint64_t>(symbol.st_size);
 
-                functionSymbols_.push_back({
-                    begin,
-                    end,
-                    name,
-                });
+                functionSymbols_.push_back({begin, end, name,});
             }
-
             break;
         }
 
         if (functionSymbols_.empty()) {
-            throw std::runtime_error(
-                "No function symbols found in ELF file: " + *elfPath
-            );
+            throw std::runtime_error("No function symbols found in ELF file: " + *elfPath);
         }
 
         normalizeFunctionSymbols();
@@ -589,8 +541,8 @@ private:
     RegcpyFunc regcpy_;
     ExecFunc exec_;
 
-    static constexpr bool ToDut = false;
-    static constexpr bool ToRef = true;
+    [[maybe_unused]] static constexpr bool ToDut = false;
+    [[maybe_unused]] static constexpr bool ToRef = true;
 
     //init 函数参数，此处仅为了保证接口统一，无意义
     constexpr static int port_ = 0;

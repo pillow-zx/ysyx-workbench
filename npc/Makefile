@@ -17,7 +17,7 @@ AUTOCONFIG_SCRIPT = $(VERILATOR_SRC_DIR)/config/generate_config.py
 
 INC_PATH ?= $(abspath $(VERILATOR_SRC_DIR)/include)
 INCFLAGS = $(addprefix -I,$(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -std=c++17 -O2
+CXXFLAGS += $(INCFLAGS) -std=c++23 -O2
 
 CAPSTONE_CFLAGS = $(shell pkg-config --cflags capstone)
 CAPSTONE_LIBS = $(shell pkg-config --libs capstone)
