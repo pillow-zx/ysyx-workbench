@@ -9,6 +9,8 @@
 #include <string>
 #include <string_view>
 
+#include <generated/autoconfig.hh>
+
 static inline constexpr std::array<std::string_view, 32> registerNames = {
     "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0",
     "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5",
@@ -17,7 +19,7 @@ static inline constexpr std::array<std::string_view, 32> registerNames = {
 
 class Cpu {
 public:
-    Cpu(int argc, char *argv[], const std::optional<std::string> &itracePath);
+    Cpu(int argc, char *argv[], const std::optional<std::string> &itracePath, const std::optional<std::string> &elfPath);
     ~Cpu();
 
     Cpu(const Cpu &) = delete;

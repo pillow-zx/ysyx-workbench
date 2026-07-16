@@ -7,7 +7,7 @@
 #include <npc.hh>
 
 Npc::Npc(const int argc, char *argv[], const NpcOptions &options)
-    : cpu(argc, argv, options.log), batchMode(options.batch) {
+    : cpu(argc, argv, options.log, options.elf), batchMode(options.batch) {
     if (!Memory::init(options.image)) {
         status = NpcStatus::Exit;
         return;
@@ -33,8 +33,8 @@ auto Npc::showRegisters() const -> void {
 
     for (std::size_t index = 0; index < registerNames.size(); ++index) {
         std::cout << std::left << std::setw(4) << registerNames[index] << " 0x" << std::right
-                  << std::hex << std::setw(8) << std::setfill('0') << cpu.getReg(index)
-                  << std::setfill(' ') << ((index % 4 == 3) ? '\n' : ' ');
+                << std::hex << std::setw(8) << std::setfill('0') << cpu.getReg(index)
+                << std::setfill(' ') << ((index % 4 == 3) ? '\n' : ' ');
     }
 
     std::cout.flags(flags);

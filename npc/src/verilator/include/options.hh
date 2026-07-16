@@ -7,6 +7,7 @@
 struct NpcOptions {
     std::string image;
     std::optional<std::string> log;
+    std::optional<std::string> elf;
     bool batch = false;
 };
 

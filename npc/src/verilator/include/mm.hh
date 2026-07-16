@@ -32,7 +32,7 @@ private:
     static constexpr std::size_t MEMORYSTART = 0x80000000;
     static constexpr std::size_t MEMORYSIZE  = 0x8000000;
 
-    inline static std::vector<std::uint8_t> memory = std::vector<std::uint8_t>(MEMORYSIZE, 0);
+    inline static auto memory = std::vector<std::uint8_t>(MEMORYSIZE, 0);
 
     [[nodiscard]] static auto loadProgram(const std::string &filename = "") -> bool;
 };

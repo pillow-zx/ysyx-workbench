@@ -4,6 +4,8 @@
 #include <cpu.hh>
 #include <options.hh>
 
+#include <generated/autoconfig.hh>
+
 enum class NpcStatus {
     Running,
     Stop,
@@ -23,7 +25,7 @@ private:
 
     Cpu cpu;
     NpcStatus status = NpcStatus::Running;
-    bool batchMode = false;
+    bool batchMode = config::args::batch;
 };
 
 #endif // NPC_NPC_HH

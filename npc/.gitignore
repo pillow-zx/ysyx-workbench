@@ -10,9 +10,13 @@
 !*.cpp
 !*.cc
 !*.hh
+!*.py
+!*.toml
 !.gitignore
 !.scalafmt.conf
 !README.md
+src/verilator/config.toml
+src/verilator/include/generated/autoconfig.hh
 build/
 
 # mill

@@ -1,4 +1,5 @@
 VERILATOR = verilator
+PYTHON ?= python3
 VERILATOR_CFLAGS += -MMD --build --cc --trace-vcd \
 	-O2 --x-assign fast --x-initial fast --noassert
 
@@ -12,6 +13,7 @@ BIN = $(OBJ_DIR)/V$(TOPNAME)
 
 VERILATOR_SRC_DIR = src/verilator
 SRC = $(shell find $(VERILATOR_SRC_DIR) -name '*.cc')
+AUTOCONFIG_SCRIPT = $(VERILATOR_SRC_DIR)/config/generate_config.py
 
 INC_PATH ?= $(abspath $(VERILATOR_SRC_DIR)/include)
 INCFLAGS = $(addprefix -I,$(INC_PATH))
@@ -23,6 +25,7 @@ CXXFLAGS += $(CAPSTONE_CFLAGS)
 LDFLAGS += $(CAPSTONE_LIBS)
 
 ARGS ?=
+DEFCONFIG ?=
 
 default: all
 
@@ -36,7 +39,10 @@ verilog:
 	mkdir -p $(BUILD_DIR)
 	mill -i runMain npc.Elaborate --target-dir $(BUILD_DIR)
 
-verilator-build: verilog $(SRC)
+autoconfig:
+	$(PYTHON) $(AUTOCONFIG_SCRIPT) --defconfig "$(DEFCONFIG)"
+
+verilator-build: autoconfig verilog $(SRC)
 	@echo "Building $(PROJECT_NAME) with Verilator..."
 	@rm -rf $(OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \
@@ -46,6 +52,11 @@ verilator-build: verilog $(SRC)
 
 sim: verilator-build
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
+	@echo "Running simulation with args: $(ARGS)"
+	$(BIN) $(ARGS)
+
+# ONLY USED TO TEST
+run:
 	@echo "Running simulation with args: $(ARGS)"
 	$(BIN) $(ARGS)
 
@@ -67,6 +78,6 @@ idea:
 clean:
 	@rm -rf $(BUILD_DIR)
 
-.PHONY: default all test verilog verilator-build sim run help reformat checkformat bsp idea clean
+.PHONY: default all test verilog autoconfig verilator-build sim run help reformat checkformat bsp idea clean
 
 -include ../Makefile

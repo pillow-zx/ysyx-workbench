@@ -10,6 +10,7 @@ auto parseOptions(const int argc, char *argv[]) -> NpcOptions {
     CLI::App app{"NPC simulator"};
     app.add_option("-i,--image", options.image, "Path to the program image");
     app.add_option("-l,--log", options.log, "Path to the instruction trace file");
+    app.add_option("-e,--elf", options.elf, "Elf file of the image to trace funcation");
     app.add_flag("-b,--batch", options.batch, "Run without entering the monitor");
 
     try {

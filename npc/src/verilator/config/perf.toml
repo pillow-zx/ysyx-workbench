@@ -1,0 +1,8 @@
+[trace]
+itrace = false
+ftrace = false
+
+[devices]
+
+[args]
+batch = true
