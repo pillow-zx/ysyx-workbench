@@ -15,9 +15,14 @@ SRC = $(shell find $(VERILATOR_SRC_DIR) -name '*.cc')
 
 INC_PATH ?= $(abspath $(VERILATOR_SRC_DIR)/include)
 INCFLAGS = $(addprefix -I,$(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -std=c++17 -g
+CXXFLAGS += $(INCFLAGS) -std=c++17 -O2
 
-ARG ?=
+CAPSTONE_CFLAGS = $(shell pkg-config --cflags capstone)
+CAPSTONE_LIBS = $(shell pkg-config --libs capstone)
+CXXFLAGS += $(CAPSTONE_CFLAGS)
+LDFLAGS += $(CAPSTONE_LIBS)
+
+ARGS ?=
 
 default: all
 
@@ -41,8 +46,8 @@ verilator-build: verilog $(SRC)
 
 sim: verilator-build
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	@echo "Running simulation with args: $(ARG)"
-	$(BIN) $(ARG)
+	@echo "Running simulation with args: $(ARGS)"
+	$(BIN) $(ARGS)
 
 help:
 	mill -i runMain npc.Elaborate --help

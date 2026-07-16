@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 
 static inline constexpr std::array<std::string_view, 32> registerNames = {
@@ -16,7 +17,7 @@ static inline constexpr std::array<std::string_view, 32> registerNames = {
 
 class Cpu {
 public:
-    Cpu(int argc, char *argv[]);
+    Cpu(int argc, char *argv[], const std::optional<std::string> &itracePath);
     ~Cpu();
 
     Cpu(const Cpu &) = delete;
@@ -35,6 +36,9 @@ public:
 private:
     class Impl;
     std::unique_ptr<Impl> impl;
+
+    class Trace;
+    std::unique_ptr<Trace> trace;
 };
 
 #endif // NPC_CPU_HH

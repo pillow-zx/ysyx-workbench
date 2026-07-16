@@ -6,8 +6,9 @@
 #include <monitor.hh>
 #include <npc.hh>
 
-Npc::Npc(const int argc, char *argv[]) : cpu(argc, argv) {
-    if (const std::string image = argc > 1 ? argv[1] : ""; !Memory::init(image)) {
+Npc::Npc(const int argc, char *argv[], const NpcOptions &options)
+    : cpu(argc, argv, options.log), batchMode(options.batch) {
+    if (!Memory::init(options.image)) {
         status = NpcStatus::Exit;
         return;
     }

@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(npc LANGUAGES CXX)
 
+find_package(CLI11 CONFIG REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(CAPSTONE REQUIRED IMPORTED_TARGET capstone)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -14,14 +18,18 @@ file(GLOB_RECURSE NPC_VERILATOR_SOURCES CONFIGURE_DEPENDS
   "${VERILATOR_SOURCE_DIR}/*.cc"
 )
 
-add_library(npc_verilator OBJECT EXCLUDE_FROM_ALL ${NPC_VERILATOR_SOURCES}
-        src/verilator/monitor/npc.cc)
+add_library(npc_verilator OBJECT EXCLUDE_FROM_ALL ${NPC_VERILATOR_SOURCES})
 
 target_include_directories(npc_verilator PRIVATE
   "${VERILATOR_SOURCE_DIR}/include"
   "${VERILATOR_MODEL_DIR}"
   "/usr/share/verilator/include"
   "/usr/share/verilator/include/vltstd"
+)
+
+target_link_libraries(npc_verilator PRIVATE
+  CLI11::CLI11
+  PkgConfig::CAPSTONE
 )
 
 target_compile_definitions(npc_verilator PRIVATE

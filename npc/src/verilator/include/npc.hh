@@ -2,6 +2,7 @@
 #define NPC_NPC_HH
 
 #include <cpu.hh>
+#include <options.hh>
 
 enum class NpcStatus {
     Running,
@@ -11,7 +12,7 @@ enum class NpcStatus {
 
 class Npc {
 public:
-    Npc(int argc, char *argv[]);
+    Npc(int argc, char *argv[], const NpcOptions &options);
 
     auto run() -> void;
 
