@@ -13,7 +13,7 @@ class Csr(xlen: Int) extends Module {
   private val mcause:  UInt = RegInit(0.U(xlen.W))
 
   private val selectedData: UInt = MuxLookup(
-    io.addr,
+    io.commit.addr,
     0.U(xlen.W)
   )(
     Seq(
@@ -25,21 +25,21 @@ class Csr(xlen: Int) extends Module {
   )
 
   private val writeData: UInt = MuxLookup(
-    io.cmd,
+    io.commit.cmd,
     selectedData
   )(
     Seq(
-      CsrCmd.Write -> io.src,
-      CsrCmd.Set   -> (selectedData | io.src),
-      CsrCmd.Clear -> (selectedData & ~io.src)
+      CsrCmd.Write -> io.commit.src,
+      CsrCmd.Set   -> (selectedData | io.commit.src),
+      CsrCmd.Clear -> (selectedData & ~io.commit.src)
     )
   )
 
-  when(io.trapReq.valid) {
-    mepc   := io.trapReq.pc
-    mcause := io.trapReq.cause
-  }.elsewhen(io.wen) {
-    switch(io.addr) {
+  when(io.commit.trapReq.valid) {
+    mepc   := io.commit.trapReq.pc
+    mcause := io.commit.trapReq.cause
+  }.elsewhen(io.commit.wen) {
+    switch(io.commit.addr) {
       is(CsrAddr.Mstatus) { mstatus := writeData }
       is(CsrAddr.Mtvec) { mtvec := writeData }
       is(CsrAddr.Mepc) { mepc := writeData }
@@ -47,7 +47,7 @@ class Csr(xlen: Int) extends Module {
     }
   }
 
-  io.rdata      := selectedData
-  io.trapVector := mtvec
-  io.epc        := mepc
+  io.commit.rdata      := selectedData
+  io.commit.trapVector := mtvec
+  io.epc               := mepc
 }

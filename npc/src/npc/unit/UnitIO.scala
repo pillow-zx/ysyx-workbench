@@ -24,17 +24,23 @@ class ImmGenIO(xlen: Int) extends Bundle {
   var imm:  UInt = Output(UInt(xlen.W))
 }
 
-class RegFileIO(xlen: Int) extends Bundle {
+class RegFileReadIO(xlen: Int) extends Bundle {
   val raddr1: UInt = Input(UInt(Constants.RegAddrWidth.W))
   val raddr2: UInt = Input(UInt(Constants.RegAddrWidth.W))
   val rdata1: UInt = Output(UInt(xlen.W))
   val rdata2: UInt = Output(UInt(xlen.W))
+}
 
+class RegFileWriteIO(xlen: Int) extends Bundle {
   val wen:   Bool = Input(Bool())
   val waddr: UInt = Input(UInt(Constants.RegAddrWidth.W))
   val wdata: UInt = Input(UInt(xlen.W))
+}
 
-  val debugGpr: Vec[UInt] = Output(Vec(Constants.RegCount, UInt(xlen.W)))
+class RegFileIO(xlen: Int) extends Bundle {
+  val read:     RegFileReadIO  = new RegFileReadIO(xlen)
+  val write:    RegFileWriteIO = new RegFileWriteIO(xlen)
+  val debugGpr: Vec[UInt]      = Output(Vec(Constants.RegCount, UInt(xlen.W)))
 }
 
 class CsrTrapRequest(xlen: Int) extends Bundle {
@@ -43,7 +49,7 @@ class CsrTrapRequest(xlen: Int) extends Bundle {
   val cause = UInt(xlen.W)
 }
 
-class CsrIO(xlen: Int) extends Bundle {
+class CsrCommitIO(xlen: Int) extends Bundle {
   val addr:  UInt = Input(UInt(CsrAddr.Width.W))
   val cmd:   UInt = Input(UInt(CsrCmd.Width.W))
   val src:   UInt = Input(UInt(xlen.W))
@@ -52,7 +58,11 @@ class CsrIO(xlen: Int) extends Bundle {
 
   val trapReq:    CsrTrapRequest = Input(new CsrTrapRequest(xlen))
   val trapVector: UInt           = Output(UInt(xlen.W))
-  val epc:        UInt           = Output(UInt(xlen.W))
+}
+
+class CsrIO(xlen: Int) extends Bundle {
+  val commit: CsrCommitIO = new CsrCommitIO(xlen)
+  val epc:    UInt        = Output(UInt(xlen.W))
 }
 
 class DecodeIO(xlen: Int) extends Bundle {

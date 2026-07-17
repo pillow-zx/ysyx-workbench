@@ -8,11 +8,11 @@ class RegFile(xlen: Int) extends Module {
 
   private val regs: Vec[UInt] = RegInit(VecInit.fill(Constants.RegCount)(0.U(xlen.W)))
 
-  io.rdata1 := Mux(io.raddr1.orR, regs(io.raddr1), 0.U)
-  io.rdata2 := Mux(io.raddr2.orR, regs(io.raddr2), 0.U)
+  io.read.rdata1 := Mux(io.read.raddr1.orR, regs(io.read.raddr1), 0.U)
+  io.read.rdata2 := Mux(io.read.raddr2.orR, regs(io.read.raddr2), 0.U)
 
-  when(io.wen && io.waddr.orR) {
-    regs(io.waddr) := io.wdata
+  when(io.write.wen && io.write.waddr.orR) {
+    regs(io.write.waddr) := io.write.wdata
   }
 
   io.debugGpr := regs
