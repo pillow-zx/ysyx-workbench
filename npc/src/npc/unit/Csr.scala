@@ -7,7 +7,7 @@ import npc.common.{CsrAddr, CsrCmd}
 class Csr(xlen: Int) extends Module {
   val io: CsrIO = IO(new CsrIO(xlen))
 
-  private val mstatus: UInt = RegInit(0.U(xlen.W))
+  private val mstatus: UInt = RegInit(0x1800.U(xlen.W))
   private val mtvec:   UInt = RegInit(0.U(xlen.W))
   private val mepc:    UInt = RegInit(0.U(xlen.W))
   private val mcause:  UInt = RegInit(0.U(xlen.W))
