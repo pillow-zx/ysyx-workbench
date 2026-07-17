@@ -1,16 +1,37 @@
 #include "VCore__Dpi.h"
 
-#include <mm.hh>
+#include <cassert>
+#include <cstdint>
+
+#include <dpicbridge.hh>
+#include <dpi.hh>
+
+namespace {
+DpicBridge *dpiAddressSpace = nullptr;
+}
+
+auto bindDpiAddressSpace(DpicBridge &bridge) -> void {
+    assert(dpiAddressSpace == nullptr);
+    dpiAddressSpace = &bridge;
+}
+
+auto unbindDpiAddressSpace(const DpicBridge &addressSpace) -> void {
+    assert(dpiAddressSpace == &addressSpace);
+    dpiAddressSpace = nullptr;
+}
 
 extern "C" auto fetchInst(const int addr, int *inst) -> void {
-    *inst = static_cast<int>(Memory::fetchInst(static_cast<std::uint32_t>(addr)));
+    assert(dpiAddressSpace != nullptr);
+    *inst = static_cast<int>(dpiAddressSpace->fetchInst(static_cast<std::uint32_t>(addr)));
 }
 
 extern "C" auto readData(const int addr, int *data) -> void {
-    *data = static_cast<int>(Memory::readData(static_cast<std::uint32_t>(addr), sizeof(std::uint32_t)));
+    assert(dpiAddressSpace != nullptr);
+    *data = static_cast<int>(dpiAddressSpace->readData(static_cast<std::uint32_t>(addr)));
 }
 
 extern "C" auto writeData(const int addr, const int data, const char wmask) -> void {
-    Memory::writeData(static_cast<std::uint32_t>(addr), static_cast<std::uint32_t>(data),
-                      static_cast<std::uint8_t>(wmask));
+    assert(dpiAddressSpace != nullptr);
+    dpiAddressSpace->writeData(static_cast<std::uint32_t>(addr), static_cast<std::uint32_t>(data),
+                               static_cast<std::uint8_t>(wmask));
 }

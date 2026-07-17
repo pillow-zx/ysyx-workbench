@@ -31,8 +31,12 @@ inline auto mtrace(MemoryOperation op, std::uint32_t addr, std::uint32_t len, st
 }
 
 auto Memory::init(const std::string &filename) -> bool {
-    std::ranges::fill(memory, 0);
+    std::ranges::fill(memory_, 0);
     return loadProgram(filename);
+}
+
+auto Memory::getMemory() -> std::vector<uint8_t> & {
+        return memory_;
 }
 
 auto Memory::fetchInst(const std::uint32_t addr) -> std::uint32_t {
@@ -50,7 +54,7 @@ auto Memory::readData(const std::uint32_t addr, const std::uint32_t size) -> std
     }
     std::uint32_t data = 0;
     for (std::size_t index = 0; index < size; ++index) {
-        data |= static_cast<std::uint32_t>(memory[offset + index]) << (index * 8);
+        data |= static_cast<std::uint32_t>(memory_[offset + index]) << (index * 8);
     }
 
     if constexpr (config::trace::mtrace) {
@@ -76,7 +80,7 @@ auto Memory::writeData(const std::uint32_t addr, const std::uint32_t data, const
         if ((wmask & (1U << lane)) == 0 || offset + lane >= MEMORYSIZE) {
             continue;
         }
-        memory[offset + lane] = static_cast<std::uint8_t>(data >> (lane * 8));
+        memory_[offset + lane] = static_cast<std::uint8_t>(data >> (lane * 8));
     }
 }
 
@@ -110,7 +114,7 @@ auto Memory::loadProgram(const std::string &filename) -> bool {
     if (filename.empty()) {
         for (std::size_t word = 0; word < img.size(); ++word) {
             for (std::size_t byte = 0; byte < sizeof(img[word]); ++byte) {
-                memory[word * sizeof(img[word]) + byte] =
+                memory_[word * sizeof(img[word]) + byte] =
                         static_cast<std::uint8_t>(img[word] >> (byte * 8));
             }
         }
@@ -131,7 +135,7 @@ auto Memory::loadProgram(const std::string &filename) -> bool {
 
     const auto fileSize = static_cast<std::size_t>(end);
     file.seekg(0, std::ios::beg);
-    if (!file.read(reinterpret_cast<char *>(memory.data()), static_cast<std::streamsize>(fileSize))) {
+    if (!file.read(reinterpret_cast<char *>(memory_.data()), static_cast<std::streamsize>(fileSize))) {
         std::cout << "Failed to read file " << filename << std::endl;
         return false;
     }

@@ -1,11 +1,14 @@
 [trace]
 itrace = true
 ftrace = false
+mtrace = false
 
 [difftest]
 difftest = true
 
 [devices]
+serial = true
+rtc = true
 
 [args]
 

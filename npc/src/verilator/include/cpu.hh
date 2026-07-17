@@ -41,13 +41,13 @@ public:
 
 private:
     class Impl;
-    std::unique_ptr<Impl> impl;
+    std::unique_ptr<Impl> impl_;
 
     class Trace;
-    std::unique_ptr<Trace> trace;
+    std::unique_ptr<Trace> trace_;
 
     class DiffTest;
-    std::unique_ptr<DiffTest> diff;
+    std::unique_ptr<DiffTest> diff_;
 
     constexpr static std::uint32_t REGNUM = 32;
 };

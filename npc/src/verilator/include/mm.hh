@@ -34,13 +34,9 @@ private:
     static constexpr std::size_t MEMORYSTART = 0x80000000;
     static constexpr std::size_t MEMORYSIZE  = 0x8000000;
 
-    inline static auto memory = std::vector<std::uint8_t>(MEMORYSIZE, 0);
+    inline static auto memory_ = std::vector<std::uint8_t>(MEMORYSIZE, 0);
 
     [[nodiscard]] static auto loadProgram(const std::string &filename = "") -> bool;
 };
-
-inline auto Memory::getMemory() -> std::vector<uint8_t> & {
-    return memory;
-}
 
 #endif //NPC_MM_HH

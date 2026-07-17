@@ -565,44 +565,44 @@ private:
 
 Cpu::Cpu(const int argc, char *argv[], const std::optional<std::string> &itracePath,
          const std::optional<std::string> &elfPath)
-    : impl(std::make_unique<Impl>(argc, argv)), trace(std::make_unique<Trace>(itracePath, elfPath)),
-      diff(std::make_unique<DiffTest>()) {
+    : impl_(std::make_unique<Impl>(argc, argv)), trace_(std::make_unique<Trace>(itracePath, elfPath)),
+      diff_(std::make_unique<DiffTest>()) {
 }
 
 Cpu::~Cpu() = default;
 
 auto Cpu::reset() const -> void {
-    impl->top.reset = 1;
-    impl->execOnce();
-    impl->execOnce();
+    impl_->top.reset = 1;
+    impl_->execOnce();
+    impl_->execOnce();
 
-    impl->top.reset = 0;
+    impl_->top.reset = 0;
 }
 
 auto Cpu::initDifftest(const std::uint32_t memoryBase, const std::vector<std::uint8_t> &memory) const -> void {
-    diff->copyMemory(memoryBase, memory.data(), memory.size());
+    diff_->copyMemory(memoryBase, memory.data(), memory.size());
     auto state = getAllRegs();
     state.push_back(getPc());
-    diff->copyRegisters(state.data(), true);
+    diff_->copyRegisters(state.data(), true);
 }
 
 auto Cpu::exec(const std::optional<std::size_t> cycles) const -> bool {
     std::size_t executed = 0;
     while (!cycles.has_value() || executed < *cycles) {
-        const auto [valid, trap, isEbreak, pc, nextPc, inst] = impl->execOnce();
+        const auto [valid, trap, isEbreak, pc, nextPc, inst] = impl_->execOnce();
         ++executed;
         if (valid) {
             if constexpr (config::trace::itrace) {
-                trace->itrace(pc, inst);
+                trace_->itrace(pc, inst);
             }
             if constexpr (config::trace::ftrace) {
                 if (!trap) {
-                    trace->ftrace(pc, nextPc, inst);
+                    trace_->ftrace(pc, nextPc, inst);
                 }
             }
             if constexpr (config::difftest::difftest) {
-                diff->step(1);
-                if (const auto hostRegs = std::move(getAllRegs()); !diff->check(hostRegs, getPc())) {
+                diff_->step(1);
+                if (const auto hostRegs = std::move(getAllRegs()); !diff_->check(hostRegs, getPc())) {
                     throw std::runtime_error("Difftest Failed;");
                 }
             }
@@ -616,17 +616,17 @@ auto Cpu::exec(const std::optional<std::size_t> cycles) const -> bool {
 
 auto Cpu::getReg(const std::size_t index) const -> std::uint32_t {
     const std::array<std::uint32_t, 32> registers = {
-        impl->top.io_debug_gpr_0, impl->top.io_debug_gpr_1, impl->top.io_debug_gpr_2,
-        impl->top.io_debug_gpr_3, impl->top.io_debug_gpr_4, impl->top.io_debug_gpr_5,
-        impl->top.io_debug_gpr_6, impl->top.io_debug_gpr_7, impl->top.io_debug_gpr_8,
-        impl->top.io_debug_gpr_9, impl->top.io_debug_gpr_10, impl->top.io_debug_gpr_11,
-        impl->top.io_debug_gpr_12, impl->top.io_debug_gpr_13, impl->top.io_debug_gpr_14,
-        impl->top.io_debug_gpr_15, impl->top.io_debug_gpr_16, impl->top.io_debug_gpr_17,
-        impl->top.io_debug_gpr_18, impl->top.io_debug_gpr_19, impl->top.io_debug_gpr_20,
-        impl->top.io_debug_gpr_21, impl->top.io_debug_gpr_22, impl->top.io_debug_gpr_23,
-        impl->top.io_debug_gpr_24, impl->top.io_debug_gpr_25, impl->top.io_debug_gpr_26,
-        impl->top.io_debug_gpr_27, impl->top.io_debug_gpr_28, impl->top.io_debug_gpr_29,
-        impl->top.io_debug_gpr_30, impl->top.io_debug_gpr_31,
+        impl_->top.io_debug_gpr_0, impl_->top.io_debug_gpr_1, impl_->top.io_debug_gpr_2,
+        impl_->top.io_debug_gpr_3, impl_->top.io_debug_gpr_4, impl_->top.io_debug_gpr_5,
+        impl_->top.io_debug_gpr_6, impl_->top.io_debug_gpr_7, impl_->top.io_debug_gpr_8,
+        impl_->top.io_debug_gpr_9, impl_->top.io_debug_gpr_10, impl_->top.io_debug_gpr_11,
+        impl_->top.io_debug_gpr_12, impl_->top.io_debug_gpr_13, impl_->top.io_debug_gpr_14,
+        impl_->top.io_debug_gpr_15, impl_->top.io_debug_gpr_16, impl_->top.io_debug_gpr_17,
+        impl_->top.io_debug_gpr_18, impl_->top.io_debug_gpr_19, impl_->top.io_debug_gpr_20,
+        impl_->top.io_debug_gpr_21, impl_->top.io_debug_gpr_22, impl_->top.io_debug_gpr_23,
+        impl_->top.io_debug_gpr_24, impl_->top.io_debug_gpr_25, impl_->top.io_debug_gpr_26,
+        impl_->top.io_debug_gpr_27, impl_->top.io_debug_gpr_28, impl_->top.io_debug_gpr_29,
+        impl_->top.io_debug_gpr_30, impl_->top.io_debug_gpr_31,
     };
 
     if (index >= registers.size()) {
@@ -644,5 +644,5 @@ auto Cpu::getAllRegs() const -> std::vector<std::uint32_t> {
 }
 
 auto Cpu::getPc() const -> std::uint32_t {
-    return impl->top.io_debug_pc;
+    return impl_->top.io_debug_pc;
 }

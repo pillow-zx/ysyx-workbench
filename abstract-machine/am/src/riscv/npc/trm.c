@@ -1,5 +1,7 @@
 #include <am.h>
 #include <klib-macros.h>
+#include <riscv/riscv.h>
+#include "mmio.h"
 
 #define npc_trap(code) asm volatile("mv a0, %0; ebreak" : : "r"(code))
 
@@ -15,7 +17,9 @@ static const char mainargs[MAINARGS_MAX_LEN] =
         TOSTRING(MAINARGS_PLACEHOLDER); // defined in CFLAGS
 
 void putch(char ch)
-{}
+{
+        outb(SERIAL_PORT, ch);
+}
 
 void halt(int code)
 {
