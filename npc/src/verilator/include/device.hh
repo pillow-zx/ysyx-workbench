@@ -1,8 +1,9 @@
 #ifndef NPC_DEVICE_HH
 #define NPC_DEVICE_HH
 
-#include <string>
+#include <chrono>
 #include <cstdint>
+#include <string>
 
 class Device {
 public:
@@ -13,28 +14,28 @@ public:
     virtual auto write(std::uint64_t offset, std::size_t len, std::uint64_t data) -> void = 0;
 };
 
-class SerialDevice: public Device {
+class SerialDevice : public Device {
 public:
     [[nodiscard]] auto read(std::uint64_t offset, std::size_t len) const -> std::uint64_t override;
 
     auto write(std::uint64_t offset, std::size_t len, std::uint64_t data) -> void override;
 };
 
-class RtcDevice: public Device {
+class RtcDevice : public Device {
 public:
-    RtcDevice() : bootTime_(hostTime()) {}
+    RtcDevice() = default;
 
     [[nodiscard]] auto read(std::uint64_t offset, std::size_t len) const -> std::uint64_t override;
 
     auto write(std::uint64_t offset, std::size_t len, std::uint64_t data) -> void override;
 
 private:
-    std::uint64_t bootTime_{0};
+    using Clock = std::chrono::steady_clock;
+    using Microseconds = std::chrono::microseconds;
 
-    [[nodiscard]] static auto hostTime() -> std::uint64_t;
+    Clock::time_point bootTime_{Clock::now()};
 
     [[nodiscard]] auto upTime() const -> std::uint64_t;
 };
 
-
-#endif //NPC_DEVICE_HH
+#endif // NPC_DEVICE_HH

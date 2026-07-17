@@ -59,9 +59,10 @@ auto Npc::showRegisters() const -> void {
     const auto fill = std::cout.fill();
 
     for (std::size_t index = 0; index < registerNames.size(); ++index) {
-        std::cout << std::left << std::setw(4) << registerNames[index] << " 0x" << std::right
-                << std::hex << std::setw(8) << std::setfill('0') << cpu_.getReg(index)
-                << std::setfill(' ') << ((index % 4 == 3) ? '\n' : ' ');
+        std::cout << std::left << std::setw(4) << registerNames[index] << " 0x"
+                  << std::right << std::hex << std::setw(8) << std::setfill('0')
+                  << cpu_.getReg(index) << std::setfill(' ')
+                  << ((index % 4 == 3) ? '\n' : ' ');
     }
 
     std::cout.flags(flags);

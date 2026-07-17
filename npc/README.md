@@ -30,3 +30,34 @@ To generate Verilog:
 ```bash
 make verilog
 ```
+
+## Verilator build modes
+
+Development builds use FST waveforms by default:
+
+```bash
+make run DEFCONFIG=dev
+```
+
+Performance builds disable waveform support entirely:
+
+```bash
+make run DEFCONFIG=perf
+```
+
+Waveform support can be selected explicitly:
+
+```bash
+make run DEFCONFIG=dev WAVE=fst
+make run DEFCONFIG=dev WAVE=none
+```
+
+Useful build and simulation tuning variables are:
+
+```bash
+make verilator-build BUILD_JOBS=0 SIM_THREADS=1
+```
+
+- `BUILD_JOBS=0` lets Verilator use the available CPUs for C++ compilation.
+- `SIM_THREADS` controls generated-model runtime threads; small designs should
+  benchmark `1` against `2` because scheduling overhead can outweigh gains.

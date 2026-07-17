@@ -1,23 +1,23 @@
 #include "VCore.h"
 #include "verilated.h"
-#include "verilated_vcd_c.h"
 
-#include <dlfcn.h>
-#include <generated/autoconfig.hh>
 #include <algorithm>
+#include <cpu.hh>
 #include <cstring>
+#include <disassembler.hh>
+#include <dlfcn.h>
 #include <elf.h>
 #include <fstream>
+#include <generated/autoconfig.hh>
+#include <iomanip>
+#include <iostream>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-#include <iomanip>
-#include <iostream>
-#include <cpu.hh>
-#include <disassembler.hh>
+#include <wave.hh>
 
 class Cpu::Impl {
 public:
@@ -33,20 +33,26 @@ public:
 
     Impl(const int argc, char *argv[]) : top(&context) {
         context.commandArgs(argc, argv);
-        Verilated::traceEverOn(true);
-        top.trace(&trace, 99);
-        trace.open("build/npc.vcd");
+        waveWriter = createWaveWriter(config::trace::wtrace);
+        if (waveWriter) {
+            waveWriter->attach(top);
+            waveWriter->open("build/npc.fst");
+        }
     }
 
     ~Impl() {
         top.final();
-        trace.close();
+        if (waveWriter) {
+            waveWriter->close();
+        }
     }
 
     auto execOnce() -> Commit {
         top.clock = 0;
         top.eval();
-        trace.dump(context.time());
+        if (waveWriter) {
+            waveWriter->dump(context.time());
+        }
         context.timeInc(1);
 
         const Commit commit{
@@ -60,7 +66,9 @@ public:
 
         top.clock = 1;
         top.eval();
-        trace.dump(context.time());
+        if (waveWriter) {
+            waveWriter->dump(context.time());
+        }
         context.timeInc(1);
 
         return commit;
@@ -68,7 +76,7 @@ public:
 
     VerilatedContext context;
     VCore top;
-    VerilatedVcdC trace;
+    std::unique_ptr<WaveWriter> waveWriter;
 };
 
 class Cpu::Trace {
@@ -99,11 +107,13 @@ public:
 
         const size_t len = ((inst & 0x3) == 0x3) ? 4 : 2;
         const std::string disassemble = disassembler_.disassemble(pc, reinterpret_cast<const uint8_t *>(&inst), len);
-        itraceFile_ << std::hex << std::setw(8) << std::setfill('0') << pc << ": " << std::setw(8) << inst << "    " <<
-                disassemble << '\n';
+        itraceFile_ << std::hex << std::setw(8) << std::setfill('0') << pc
+                << ": " << std::setw(8) << inst << "    " << disassemble
+                << '\n';
     }
 
-    auto ftrace(const std::uint32_t pc, const std::uint32_t nextPc, const std::uint32_t inst) -> void {
+    auto ftrace(const std::uint32_t pc, const std::uint32_t nextPc,
+                const std::uint32_t inst) -> void {
         if (isRetCall(inst)) {
             if (callStack_.empty()) {
                 std::cout << "Warning: unmatched return at 0x" << std::hex << pc << '\n';
@@ -112,8 +122,9 @@ public:
             const CallFrame frame = std::move(callStack_.back());
             callStack_.pop_back();
 
-            std::cout << std::string(callStack_.size() * 2, ' ') << "return: " << frame.functionName << " at 0x" <<
-                    std::hex << pc << '\n';
+            std::cout << std::string(callStack_.size() * 2, ' ')
+                    << "return: " << frame.functionName << " at 0x"
+                    << std::hex << pc << '\n';
             return;
         }
 
@@ -125,8 +136,8 @@ public:
         std::string functionName = symbol == nullptr ? "<unknown>" : symbol->name;
 
         std::cout << std::string(callStack_.size() * 2, ' ')
-                << "call: " << functionName
-                << " at 0x" << std::hex << nextPc << '\n';
+                << "call: " << functionName << " at 0x" << std::hex << nextPc
+                << '\n';
 
         callStack_.push_back({pc, nextPc, std::move(functionName)});
     }
@@ -201,19 +212,16 @@ private:
     }
 
     [[nodiscard]] static auto isRetCall(const std::uint32_t inst) -> bool {
-        return opcode(inst) == 0x67 && funct3(inst) == 0 && rd(inst) == 0 && (rs1(inst) == 1 || rs1(inst) == 5) &&
-               immI(inst) == 0;
+        return opcode(inst) == 0x67 && funct3(inst) == 0 && rd(inst) == 0 &&
+               (rs1(inst) == 1 || rs1(inst) == 5) && immI(inst) == 0;
     }
 
     [[nodiscard]] auto findFunction(const std::uint32_t nextPc) -> const FunctionSymbol * {
         const auto iterator = std::upper_bound(
-            functionSymbols_.begin(),
-            functionSymbols_.end(),
-            nextPc,
+            functionSymbols_.begin(), functionSymbols_.end(), nextPc,
             [](const std::uint32_t addr, const FunctionSymbol &symbol) {
                 return addr < symbol.begin;
-            }
-        );
+            });
 
         if (iterator == functionSymbols_.begin()) {
             return nullptr;
@@ -228,19 +236,14 @@ private:
         return &symbol;
     }
 
-    [[nodiscard]] static auto validRange(
-        const std::size_t fileSize,
-        const std::uint64_t offset,
-        const std::uint64_t size
-    ) -> bool {
+    [[nodiscard]] static auto validRange(const std::size_t fileSize,
+                                         const std::uint64_t offset,
+                                         const std::uint64_t size) -> bool {
         return offset <= fileSize && size <= fileSize - offset;
     }
 
     template<typename T>
-    [[nodiscard]] static auto readElfObject(
-        const std::vector<char> &data,
-        const std::size_t offset
-    ) -> T {
+    [[nodiscard]] static auto readElfObject(const std::vector<char> &data, const std::size_t offset) -> T {
         if (offset > data.size() || sizeof(T) > data.size() - offset) {
             throw std::runtime_error("ELF object is outside file bounds");
         }
@@ -250,11 +253,8 @@ private:
         return object;
     }
 
-    [[nodiscard]] static auto readElfString(
-        const std::vector<char> &data,
-        const Elf32_Shdr &stringTable,
-        const std::uint32_t stringOffset
-    ) -> std::string {
+    [[nodiscard]] static auto readElfString(const std::vector<char> &data, const Elf32_Shdr &stringTable,
+                                            const std::uint32_t stringOffset) -> std::string {
         if (stringOffset >= stringTable.sh_size) {
             throw std::runtime_error("ELF symbol name is outside string table");
         }
@@ -281,14 +281,12 @@ private:
     }
 
     auto normalizeFunctionSymbols() -> void {
-        std::ranges::sort(functionSymbols_,
-                          [](const FunctionSymbol &lhs, const FunctionSymbol &rhs) {
-                              if (lhs.begin != rhs.begin) {
-                                  return lhs.begin < rhs.begin;
-                              }
-                              return lhs.end > rhs.end;
-                          }
-        );
+        std::ranges::sort(functionSymbols_, [](const FunctionSymbol &lhs, const FunctionSymbol &rhs) {
+            if (lhs.begin != rhs.begin) {
+                return lhs.begin < rhs.begin;
+            }
+            return lhs.end > rhs.end;
+        });
 
         for (std::size_t index = 0; index < functionSymbols_.size(); ++index) {
             FunctionSymbol &symbol = functionSymbols_[index];
@@ -332,15 +330,16 @@ private:
 
         elfFile.seekg(0, std::ios::beg);
 
-        if (!elfData.empty() && !elfFile.
-            read(elfData.data(), static_cast<std::streamsize>(elfData.size()))) {
+        if (!elfData.empty() && !elfFile.read(elfData.data(), static_cast<std::streamsize>(elfData.size()))) {
             throw std::runtime_error("Failed to read ELF file: " + *elfPath);
         }
 
         const Elf32_Ehdr elfHeader = readElfObject<Elf32_Ehdr>(elfData, 0);
 
-        if (elfHeader.e_ident[EI_MAG0] != ELFMAG0 || elfHeader.e_ident[EI_MAG1] != ELFMAG1 || elfHeader.e_ident[EI_MAG2]
-            != ELFMAG2 || elfHeader.e_ident[EI_MAG3] != ELFMAG3) {
+        if (elfHeader.e_ident[EI_MAG0] != ELFMAG0 ||
+            elfHeader.e_ident[EI_MAG1] != ELFMAG1 ||
+            elfHeader.e_ident[EI_MAG2] != ELFMAG2 ||
+            elfHeader.e_ident[EI_MAG3] != ELFMAG3) {
             throw std::runtime_error("Invalid ELF maigc: " + *elfPath);
         }
 
@@ -360,8 +359,8 @@ private:
             throw std::runtime_error("Invalid ELF section header size");
         }
 
-        if (const std::uint64_t sectionTableSize = static_cast<std::uint64_t>(elfHeader.e_shnum) * elfHeader.e_shentsize
-            ; !validRange(elfData.size(), elfHeader.e_shoff, sectionTableSize)) {
+        if (const std::uint64_t sectionTableSize = static_cast<std::uint64_t>(elfHeader.e_shnum) *elfHeader.e_shentsize;
+            !validRange(elfData.size(), elfHeader.e_shoff, sectionTableSize)) {
             throw std::runtime_error("ELF section header table is outside file bounds");
         }
 
@@ -372,10 +371,7 @@ private:
 
             const std::uint64_t offset = static_cast<std::uint64_t>(elfHeader.e_shoff) + index * elfHeader.e_shentsize;
 
-            return readElfObject<Elf32_Shdr>(
-                elfData,
-                offset
-            );
+            return readElfObject<Elf32_Shdr>(elfData, offset);
         };
 
         functionSymbols_.clear();
@@ -402,22 +398,18 @@ private:
                 throw std::runtime_error("ELF symbol table does not reference a string table");
             }
 
-            if (!validRange(elfData.size(), symbolTable.sh_offset, symbolTable.sh_size) ||
-                !validRange(elfData.size(), stringTable.sh_offset, stringTable.sh_size)) {
+            if (!validRange(elfData.size(), symbolTable.sh_offset,symbolTable.sh_size) ||
+                !validRange(elfData.size(), stringTable.sh_offset,stringTable.sh_size)) {
                 throw std::runtime_error("ELF symbol or string table is outside file bounds");
             }
 
             const std::size_t symbolCount = symbolTable.sh_size / symbolTable.sh_entsize;
 
-
             for (std::size_t symbolIndex = 0; symbolIndex < symbolCount; ++symbolIndex) {
-                const std::uint64_t symbolOffset =
-                        static_cast<std::uint64_t>(symbolTable.sh_offset) + symbolIndex * symbolTable.sh_entsize;
+                const std::uint64_t symbolOffset = static_cast<std::uint64_t>(symbolTable.sh_offset) +
+                        symbolIndex * symbolTable.sh_entsize;
 
-                const Elf32_Sym symbol = readElfObject<Elf32_Sym>(
-                    elfData,
-                    symbolOffset
-                );
+                const Elf32_Sym symbol = readElfObject<Elf32_Sym>(elfData, symbolOffset);
 
                 if (ELF32_ST_TYPE(symbol.st_info) != STT_FUNC) {
                     continue;
@@ -448,12 +440,8 @@ private:
 
         normalizeFunctionSymbols();
 
-        std::cout
-                << "Ftrace initialized: "
-                << functionSymbols_.size()
-                << " function symbols loaded from "
-                << *elfPath
-                << '\n';
+        std::cout << "Ftrace initialized: " << functionSymbols_.size()
+                << " function symbols loaded from " << *elfPath << '\n';
     }
 };
 
@@ -483,40 +471,37 @@ public:
         }
     }
 
-    auto copyMemory(const std::uint32_t addr, const void *buffer, const std::size_t size) const -> void {
-        memcpy(addr, const_cast<void *>(buffer), size, ToRef);
+    auto copyMemory(const std::uint32_t addr, const std::span<const std::uint8_t> memory) const -> void {
+        memcpy(addr, const_cast<std::uint8_t *>(memory.data()), memory.size(), ToRef);
     }
 
     auto copyRegisters(const void *state, const bool direction) const -> void {
         regcpy(const_cast<void *>(state), direction);
     }
 
-    auto step(const std::uint64_t n) const -> void {
-        exec(n);
-    }
+    auto step(const std::uint64_t n) const -> void { exec(n); }
 
-    [[nodiscard]] auto check(const std::vector<std::uint32_t> &dutRegs, const std::uint32_t dutPc) const -> bool {
-        std::array<std::uint32_t, REGNUM + 1> refState{};
+    [[nodiscard]] auto check(const std::span<const std::uint32_t> dutRegs, const std::uint32_t dutPc) const -> bool {
+        if (dutRegs.size() != RegisterCount) {
+            return false;
+        }
+
+        std::array<std::uint32_t, RegisterCount + 1> refState{};
         regcpy(refState.data(), false);
-        for (std::size_t index = 0; index < REGNUM; ++index) {
-            if (dutRegs.at(index) != refState.at(index)) {
-                std::cout
-                        << "Difftest failed at "
-                        << registerNames[index]
+        for (std::size_t index = 0; index < RegisterCount; ++index) {
+            if (dutRegs[index] != refState.at(index)) {
+                std::cout << "Difftest failed at " << registerNames[index]
                         << "(x" << index << ")"
                         << ": DUT=0x" << std::hex << dutRegs[index]
-                        << ", REF=0x" << refState[index]
-                        << ", DUT PC=0x" << dutPc
-                        << '\n';
+                        << ", REF=0x" << refState[index] << ", DUT PC=0x"
+                        << dutPc << '\n';
                 return false;
             }
         }
 
-        if (const auto refPc = refState[REGNUM]; dutPc != refPc) {
-            std::cout
-                    << "Difftest failed at PC"
-                    << ": DUT=0x" << std::hex << dutPc
-                    << ", REF=0x" << refPc
+        if (const auto refPc = refState[RegisterCount]; dutPc != refPc) {
+            std::cout << "Difftest failed at PC"
+                    << ": DUT=0x" << std::hex << dutPc << ", REF=0x" << refPc
                     << '\n';
             return false;
         }
@@ -544,7 +529,7 @@ private:
     [[maybe_unused]] static constexpr bool ToDut = false;
     [[maybe_unused]] static constexpr bool ToRef = true;
 
-    //init 函数参数，此处仅为了保证接口统一，无意义
+    // init 函数参数，此处仅为了保证接口统一，无意义
     constexpr static int port_ = 0;
 
     const char *soPath_ = "src/verilator/libs/nemu.so";
@@ -558,14 +543,14 @@ private:
         regcpy_(regs, dir);
     }
 
-    auto exec(const std::uint64_t n) const -> void {
-        exec_(n);
-    }
+    auto exec(const std::uint64_t n) const -> void { exec_(n); }
 };
 
-Cpu::Cpu(const int argc, char *argv[], const std::optional<std::string> &itracePath,
+Cpu::Cpu(const int argc, char *argv[],
+         const std::optional<std::string> &itracePath,
          const std::optional<std::string> &elfPath)
-    : impl_(std::make_unique<Impl>(argc, argv)), trace_(std::make_unique<Trace>(itracePath, elfPath)),
+    : impl_(std::make_unique<Impl>(argc, argv)),
+      trace_(std::make_unique<Trace>(itracePath, elfPath)),
       diff_(std::make_unique<DiffTest>()) {
 }
 
@@ -579,17 +564,19 @@ auto Cpu::reset() const -> void {
     impl_->top.reset = 0;
 }
 
-auto Cpu::initDifftest(const std::uint32_t memoryBase, const std::vector<std::uint8_t> &memory) const -> void {
-    diff_->copyMemory(memoryBase, memory.data(), memory.size());
-    auto state = getAllRegs();
-    state.push_back(getPc());
+auto Cpu::initDifftest(const std::uint32_t memoryBase, const std::span<const std::uint8_t> memory) const -> void {
+    diff_->copyMemory(memoryBase, memory);
+    std::array<std::uint32_t, RegisterCount + 1> state{};
+    std::ranges::copy(getAllRegs(), state.begin());
+    state.back() = getPc();
     diff_->copyRegisters(state.data(), true);
 }
 
 auto Cpu::exec(const std::optional<std::size_t> cycles) const -> bool {
     std::size_t executed = 0;
     while (!cycles.has_value() || executed < *cycles) {
-        const auto [valid, trap, isEbreak, pc, nextPc, inst] = impl_->execOnce();
+        const auto [valid, trap, isEbreak, pc, nextPc, inst] =
+                impl_->execOnce();
         ++executed;
         if (valid) {
             if constexpr (config::trace::itrace) {
@@ -615,34 +602,28 @@ auto Cpu::exec(const std::optional<std::size_t> cycles) const -> bool {
 }
 
 auto Cpu::getReg(const std::size_t index) const -> std::uint32_t {
-    const std::array<std::uint32_t, 32> registers = {
-        impl_->top.io_debug_gpr_0, impl_->top.io_debug_gpr_1, impl_->top.io_debug_gpr_2,
-        impl_->top.io_debug_gpr_3, impl_->top.io_debug_gpr_4, impl_->top.io_debug_gpr_5,
-        impl_->top.io_debug_gpr_6, impl_->top.io_debug_gpr_7, impl_->top.io_debug_gpr_8,
-        impl_->top.io_debug_gpr_9, impl_->top.io_debug_gpr_10, impl_->top.io_debug_gpr_11,
-        impl_->top.io_debug_gpr_12, impl_->top.io_debug_gpr_13, impl_->top.io_debug_gpr_14,
-        impl_->top.io_debug_gpr_15, impl_->top.io_debug_gpr_16, impl_->top.io_debug_gpr_17,
-        impl_->top.io_debug_gpr_18, impl_->top.io_debug_gpr_19, impl_->top.io_debug_gpr_20,
-        impl_->top.io_debug_gpr_21, impl_->top.io_debug_gpr_22, impl_->top.io_debug_gpr_23,
-        impl_->top.io_debug_gpr_24, impl_->top.io_debug_gpr_25, impl_->top.io_debug_gpr_26,
-        impl_->top.io_debug_gpr_27, impl_->top.io_debug_gpr_28, impl_->top.io_debug_gpr_29,
+    return getAllRegs().at(index);
+}
+
+auto Cpu::getAllRegs() const -> RegisterFile {
+    return {
+        impl_->top.io_debug_gpr_0, impl_->top.io_debug_gpr_1,
+        impl_->top.io_debug_gpr_2, impl_->top.io_debug_gpr_3,
+        impl_->top.io_debug_gpr_4, impl_->top.io_debug_gpr_5,
+        impl_->top.io_debug_gpr_6, impl_->top.io_debug_gpr_7,
+        impl_->top.io_debug_gpr_8, impl_->top.io_debug_gpr_9,
+        impl_->top.io_debug_gpr_10, impl_->top.io_debug_gpr_11,
+        impl_->top.io_debug_gpr_12, impl_->top.io_debug_gpr_13,
+        impl_->top.io_debug_gpr_14, impl_->top.io_debug_gpr_15,
+        impl_->top.io_debug_gpr_16, impl_->top.io_debug_gpr_17,
+        impl_->top.io_debug_gpr_18, impl_->top.io_debug_gpr_19,
+        impl_->top.io_debug_gpr_20, impl_->top.io_debug_gpr_21,
+        impl_->top.io_debug_gpr_22, impl_->top.io_debug_gpr_23,
+        impl_->top.io_debug_gpr_24, impl_->top.io_debug_gpr_25,
+        impl_->top.io_debug_gpr_26, impl_->top.io_debug_gpr_27,
+        impl_->top.io_debug_gpr_28, impl_->top.io_debug_gpr_29,
         impl_->top.io_debug_gpr_30, impl_->top.io_debug_gpr_31,
     };
-
-    if (index >= registers.size()) {
-        throw std::out_of_range("register index out of range");
-    }
-    return registers[index];
 }
 
-auto Cpu::getAllRegs() const -> std::vector<std::uint32_t> {
-    auto allRegs = std::vector<std::uint32_t>(REGNUM, 0);
-    for (std::size_t i = 0; i < REGNUM; ++i) {
-        allRegs[i] = getReg(i);
-    }
-    return allRegs;
-}
-
-auto Cpu::getPc() const -> std::uint32_t {
-    return impl_->top.io_debug_pc;
-}
+auto Cpu::getPc() const -> std::uint32_t { return impl_->top.io_debug_pc; }

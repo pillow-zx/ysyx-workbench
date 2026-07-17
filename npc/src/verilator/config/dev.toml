@@ -2,6 +2,7 @@
 itrace = true
 ftrace = false
 mtrace = false
+wtrace = true
 
 [difftest]
 difftest = true

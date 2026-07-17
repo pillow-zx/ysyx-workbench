@@ -1,13 +1,12 @@
 #ifndef NPC_CPU_HH
 #define NPC_CPU_HH
 
-
 #include <array>
 #include <cstddef>
-#include <vector>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -19,23 +18,32 @@ static inline constexpr std::array<std::string_view, 32> registerNames = {
 
 class Cpu {
 public:
-    Cpu(int argc, char *argv[], const std::optional<std::string> &itracePath, const std::optional<std::string> &elfPath);
+    static constexpr std::size_t RegisterCount = 32;
+    using RegisterFile = std::array<std::uint32_t, RegisterCount>;
+
+    Cpu(int argc, char *argv[], const std::optional<std::string> &itracePath,
+        const std::optional<std::string> &elfPath);
+
     ~Cpu();
 
     Cpu(const Cpu &) = delete;
+
     auto operator=(const Cpu &) -> Cpu & = delete;
+
     Cpu(Cpu &&) = delete;
+
     auto operator=(Cpu &&) -> Cpu & = delete;
 
     auto reset() const -> void;
 
-    auto initDifftest(std::uint32_t memoryBase, const std::vector<std::uint8_t> &memory) const -> void;
+    auto initDifftest(std::uint32_t memoryBase,
+                      std::span<const std::uint8_t> memory) const -> void;
 
     [[nodiscard]] auto exec(std::optional<std::size_t> cycles = std::nullopt) const -> bool;
 
     [[nodiscard]] auto getReg(std::size_t index) const -> std::uint32_t;
 
-    [[nodiscard]] auto getAllRegs() const -> std::vector<std::uint32_t>;
+    [[nodiscard]] auto getAllRegs() const -> RegisterFile;
 
     [[nodiscard]] auto getPc() const -> std::uint32_t;
 
@@ -48,8 +56,6 @@ private:
 
     class DiffTest;
     std::unique_ptr<DiffTest> diff_;
-
-    constexpr static std::uint32_t REGNUM = 32;
 };
 
 #endif // NPC_CPU_HH

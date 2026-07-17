@@ -10,8 +10,8 @@
 #include <vector>
 
 class Mmio {
-public:
-    auto map(const std::string &name, std::uint64_t addr, std::size_t len,
+  public:
+    auto map(std::string_view name, std::uint64_t addr, std::size_t len,
              std::reference_wrapper<Device> device) -> void;
 
     auto isMapped(std::uint64_t addr) const -> bool;
@@ -20,7 +20,7 @@ public:
 
     auto write(std::uint64_t addr, std::size_t len, std::uint64_t data) const -> void;
 
-private:
+  private:
     struct Mapping {
         std::string name;
         std::uint64_t base;
@@ -30,10 +30,12 @@ private:
 
     std::vector<Mapping> mapping_;
 
-    [[nodiscard]] auto findDevice(std::uint64_t addr) const -> std::optional<std::reference_wrapper<const Mapping>> {
-        const auto mapping = std::ranges::find_if(mapping_, [addr](const auto &entry) {
-            return addr >= entry.base && addr < entry.base + entry.len;
-        });
+    [[nodiscard]] auto findDevice(std::uint64_t addr) const
+        -> std::optional<std::reference_wrapper<const Mapping>> {
+        const auto mapping =
+            std::ranges::find_if(mapping_, [addr](const auto &entry) {
+                return addr >= entry.base && addr < entry.base + entry.len;
+            });
 
         if (mapping == mapping_.end()) {
             return std::nullopt;

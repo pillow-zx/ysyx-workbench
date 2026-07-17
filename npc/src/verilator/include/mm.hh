@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -12,7 +13,7 @@ public:
 
     [[nodiscard]] static auto init(const std::string &filename) -> bool;
 
-    [[nodiscard]] static auto getMemory() -> std::vector<uint8_t> &;
+    [[nodiscard]] static auto getMemory() -> std::span<const std::uint8_t>;
 
     [[nodiscard]] static auto fetchInst(std::uint32_t addr) -> std::uint32_t;
 
@@ -32,11 +33,11 @@ private:
     };
 
     static constexpr std::size_t MEMORYSTART = 0x80000000;
-    static constexpr std::size_t MEMORYSIZE  = 0x8000000;
+    static constexpr std::size_t MEMORYSIZE = 0x8000000;
 
     inline static auto memory_ = std::vector<std::uint8_t>(MEMORYSIZE, 0);
 
     [[nodiscard]] static auto loadProgram(const std::string &filename = "") -> bool;
 };
 
-#endif //NPC_MM_HH
+#endif // NPC_MM_HH

@@ -2,9 +2,9 @@
 
 #include <stdexcept>
 
-auto Mmio::map(const std::string &name, const std::uint64_t addr, const std::size_t len,
-               std::reference_wrapper<Device> device) -> void {
-    mapping_.push_back({name, addr, len, device});
+auto Mmio::map(const std::string_view name, const std::uint64_t addr,
+               const std::size_t len, const std::reference_wrapper<Device> device) -> void {
+    mapping_.push_back({std::string{name}, addr, len, device});
 }
 
 auto Mmio::isMapped(const std::uint64_t addr) const -> bool {
