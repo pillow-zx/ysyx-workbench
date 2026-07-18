@@ -24,8 +24,6 @@ class IFU(xlen: Int, resetVector: BigInt) extends Module {
   when(io.nextPc.fire) {
     pc       := io.nextPc.bits
     validReg := false.B
-  }.elsewhen(io.out.fire) {
-    validReg := false.B
   }
 
   io.out.bits       := msgReg
