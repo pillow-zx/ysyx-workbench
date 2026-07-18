@@ -8,11 +8,11 @@ import npc.unit.{CsrCommitIO, RegFileWriteIO}
 
 class WBU(xlen: Int) extends Module {
   val io = IO(new Bundle {
-    val in:       DecoupledIO[Message] = Flipped(Decoupled(new Message(xlen)))
-    val regs:     RegFileWriteIO       = Flipped(new RegFileWriteIO(xlen))
-    val csr:      CsrCommitIO          = Flipped(new CsrCommitIO(xlen))
-    val nextPc:   DecoupledIO[UInt]    = Decoupled(UInt(xlen.W))
-    val commit:   CommitInfo           = Output(new CommitInfo(xlen))
+    val in:     DecoupledIO[Message] = Flipped(Decoupled(new Message(xlen)))
+    val regs:   RegFileWriteIO       = Flipped(new RegFileWriteIO(xlen))
+    val csr:    CsrCommitIO          = Flipped(new CsrCommitIO(xlen))
+    val nextPc: DecoupledIO[UInt]    = Decoupled(UInt(xlen.W))
+    val commit: CommitInfo           = Output(new CommitInfo(xlen))
   })
 
   private val pc:             UInt = io.in.bits.pc
