@@ -7,7 +7,7 @@ import npc.common.{MemSize, TrapCause}
 
 import scala.language.postfixOps
 
-class MEM(xlen: Int) extends Module {
+class LSU(xlen: Int) extends Module {
   val io = IO(new Bundle {
     val in:  DecoupledIO[Message] = Flipped(Decoupled(new Message(xlen)))
     val out: DecoupledIO[Message] = Decoupled(new Message(xlen))

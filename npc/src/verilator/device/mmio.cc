@@ -4,7 +4,7 @@
 
 auto Mmio::map(const std::string_view name, const std::uint64_t addr,
                const std::size_t len, const std::reference_wrapper<Device> device) -> void {
-    mapping_.push_back({std::string{name}, addr, len, device});
+    mapping_.push_back({.name = std::string{name}, .base = addr, .len = len, .device = device});
 }
 
 auto Mmio::isMapped(const std::uint64_t addr) const -> bool {

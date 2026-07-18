@@ -8,14 +8,16 @@
 
 #include "generated/autoconfig.hh"
 
-enum class MemoryOperation {
-    Read,
-    Write,
-};
+namespace {
+    enum class MemoryOperation {
+        Read,
+        Write,
+    };
+}
 
 auto Memory::getBaseAddress() -> std::size_t { return MEMORYSTART; }
 
-constexpr auto toString(const MemoryOperation op) -> std::string_view {
+static constexpr auto toString(const MemoryOperation op) -> std::string_view {
     switch (op) {
     case MemoryOperation::Read:
         return "READ";
@@ -25,7 +27,7 @@ constexpr auto toString(const MemoryOperation op) -> std::string_view {
     std::unreachable();
 }
 
-inline auto mtrace(const MemoryOperation op, std::uint32_t addr, std::uint32_t len, std::uint32_t data) -> void {
+static inline auto mtrace(const MemoryOperation op, std::uint32_t addr, std::uint32_t len, std::uint32_t data) -> void {
     std::println("[MTRACE] {:<5} addr={:#010x} len={} data={:#010x}",
                  toString(op), addr, len, data);
 }

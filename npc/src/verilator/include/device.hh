@@ -3,7 +3,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <string>
 
 class Device {
 public:

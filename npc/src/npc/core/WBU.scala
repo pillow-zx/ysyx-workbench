@@ -11,7 +11,7 @@ class WBU(xlen: Int) extends Module {
     val in:       DecoupledIO[Message] = Flipped(Decoupled(new Message(xlen)))
     val regs:     RegFileWriteIO       = Flipped(new RegFileWriteIO(xlen))
     val csr:      CsrCommitIO          = Flipped(new CsrCommitIO(xlen))
-    val pcUpdate: ValidIO[UInt]        = Valid(UInt(xlen.W))
+    val nextPc:   DecoupledIO[UInt]    = Decoupled(UInt(xlen.W))
     val commit:   CommitInfo           = Output(new CommitInfo(xlen))
   })
 
@@ -42,6 +42,11 @@ class WBU(xlen: Int) extends Module {
   io.csr.cmd  := csrCmd
   io.csr.src  := csrSource
 
+  io.csr.trapReq.valid := commitFire && trapValid
+  io.csr.trapReq.pc    := pc
+  io.csr.trapReq.cause := trapCause
+  io.csr.wen           := commitFire && valid && csrWen && !trapValid
+
   private val writebackData: UInt = MuxLookup(
     wbSel,
     0.U(xlen.W)
@@ -54,14 +59,13 @@ class WBU(xlen: Int) extends Module {
     )
   )
 
-  io.csr.trapReq.valid := commitFire && trapValid
-  io.csr.trapReq.pc    := pc
-  io.csr.trapReq.cause := trapCause
-  io.csr.wen           := commitFire && valid && csrWen && !trapValid
-
-  private val nextPc: UInt = Mux(trapValid, io.csr.trapVector, selectedPc)
-  io.pcUpdate.valid := commitFire
-  io.pcUpdate.bits  := nextPc
+  private val nextPc: UInt = Mux(
+    trapValid,
+    io.csr.trapVector,
+    selectedPc
+  )
+  io.nextPc.valid := commitFire
+  io.nextPc.bits  := nextPc
 
   private val commitInfo: CommitInfo = WireDefault(0.U.asTypeOf(new CommitInfo(xlen)))
   commitInfo.valid        := commitFire && (valid || trapValid)

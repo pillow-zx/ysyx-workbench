@@ -6,21 +6,29 @@ import npc.interface.{Dpic, Message}
 
 class IFU(xlen: Int, resetVector: BigInt) extends Module {
   val io = IO(new Bundle {
-    val out:      DecoupledIO[Message] = Decoupled(new Message(xlen))
-    val pcUpdate: ValidIO[UInt]        = Flipped(Valid(UInt(xlen.W)))
+    val out:    DecoupledIO[Message] = Decoupled(new Message(xlen))
+    val nextPc: DecoupledIO[UInt]    = Flipped(Decoupled(UInt(xlen.W)))
   })
 
-  private val pc:   UInt = RegInit(resetVector.U(xlen.W))
-  private val inst: UInt = Dpic.fetchInst.call(pc)
+  private val pc: UInt = RegInit(resetVector.U(xlen.W))
 
-  when(io.pcUpdate.valid) {
-    pc := io.pcUpdate.bits
+  private val msgReg:   Message = Reg(new Message(xlen))
+  private val validReg: Bool    = RegInit(false.B)
+
+  when(!validReg) {
+    msgReg.pc   := pc
+    msgReg.inst := Dpic.fetchInst.call(pc)
+    validReg    := true.B
   }
 
-  private val message: Message = WireDefault(0.U.asTypeOf(new Message(xlen)))
-  message.pc   := pc
-  message.inst := inst
+  when(io.nextPc.fire) {
+    pc       := io.nextPc.bits
+    validReg := false.B
+  }.elsewhen(io.out.fire) {
+    validReg := false.B
+  }
 
-  io.out.bits  := message
-  io.out.valid := !reset.asBool
+  io.out.bits       := msgReg
+  io.out.valid      := !reset.asBool && validReg
+  io.nextPc.ready := true.B
 }

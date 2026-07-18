@@ -56,12 +56,12 @@ public:
         context.timeInc(1);
 
         const Commit commit{
-            static_cast<bool>(top.io_commit_valid),
-            static_cast<bool>(top.io_commit_trap),
-            static_cast<bool>(top.io_commit_isEbreak),
-            top.io_commit_pc,
-            top.io_commit_nextPc,
-            top.io_commit_inst,
+            .valid = static_cast<bool>(top.io_commit_valid),
+            .trap = static_cast<bool>(top.io_commit_trap),
+            .isEbreak = static_cast<bool>(top.io_commit_isEbreak),
+            .pc = top.io_commit_pc,
+            .nextPc = top.io_commit_nextPc,
+            .inst = top.io_commit_inst,
         };
 
         top.clock = 1;
@@ -139,7 +139,7 @@ public:
                 << "call: " << functionName << " at 0x" << std::hex << nextPc
                 << '\n';
 
-        callStack_.push_back({pc, nextPc, std::move(functionName)});
+        callStack_.push_back({.callPc = pc, .targetPc = nextPc, .functionName = std::move(functionName)});
     }
 
 private:
@@ -429,7 +429,7 @@ private:
                 const std::uint64_t end =
                         begin + static_cast<std::uint64_t>(symbol.st_size);
 
-                functionSymbols_.push_back({begin, end, name,});
+                functionSymbols_.push_back({.begin = begin, .end = end, .name = name,});
             }
             break;
         }

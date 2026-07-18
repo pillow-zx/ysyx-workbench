@@ -21,18 +21,18 @@ class Core(config: NpcConfig = NpcConfig()) extends Module {
   private val ifu: IFU = Module(new IFU(config.xlen, config.resetVector))
   private val idu: IDU = Module(new IDU(config.xlen))
   private val exu: EXU = Module(new EXU(config.xlen))
-  private val mem: MEM = Module(new MEM(config.xlen))
+  private val lsu: LSU = Module(new LSU(config.xlen))
   private val wbu: WBU = Module(new WBU(config.xlen))
 
   idu.io.in <> ifu.io.out
   idu.io.regs <> regs.io.read
   exu.io.in <> idu.io.out
   exu.io.epc := csr.io.epc
-  mem.io.in <> exu.io.out
-  wbu.io.in <> mem.io.out
+  lsu.io.in <> exu.io.out
+  wbu.io.in <> lsu.io.out
   wbu.io.csr <> csr.io.commit
   wbu.io.regs <> regs.io.write
-  ifu.io.pcUpdate <> wbu.io.pcUpdate
+  ifu.io.nextPc <> wbu.io.nextPc
 
   private val architecturalPc: UInt = RegInit(config.resetVector.U(config.xlen.W))
   when(wbu.io.commit.valid) {
