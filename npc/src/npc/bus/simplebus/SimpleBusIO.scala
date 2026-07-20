@@ -1,4 +1,4 @@
-package npc.bus
+package npc.bus.simplebus
 
 import chisel3._
 import chisel3.util._
@@ -18,4 +18,9 @@ class SimpleBusResp(xlen: Int) extends Bundle {
 class SimpleBusMasterIO(xlen: Int) extends Bundle {
   val req:  DecoupledIO[SimpleBusReq]  = Decoupled(new SimpleBusReq(xlen))
   val resp: DecoupledIO[SimpleBusResp] = Flipped(Decoupled(new SimpleBusResp(xlen)))
+}
+
+class SimpleBusSlaveIO(xlen: Int) extends Bundle {
+  val req:  DecoupledIO[SimpleBusReq]  = Flipped(Decoupled(new SimpleBusReq(xlen)))
+  val resp: DecoupledIO[SimpleBusResp] = Decoupled(new SimpleBusResp(xlen))
 }

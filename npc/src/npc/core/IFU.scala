@@ -2,8 +2,8 @@ package npc.core
 
 import chisel3._
 import chisel3.util._
+import npc.bus.simplebus.SimpleBusMasterIO
 import npc.interface.Message
-import npc.bus.SimpleBusMasterIO
 
 object IFUState extends ChiselEnum {
   val sendReq, waitResp, output = Value
@@ -19,7 +19,7 @@ class IFU(xlen: Int, resetVector: BigInt) extends Module {
   private val pc:    UInt          = RegInit(resetVector.U(xlen.W))
   private val state: IFUState.Type = RegInit(IFUState.sendReq)
 
-  private val msgReg:   Message = Reg(new Message(xlen))
+  private val msgReg: Message = Reg(new Message(xlen))
 
   io.bus.req.valid      := !reset.asBool && state === IFUState.sendReq
   io.bus.req.bits.addr  := pc

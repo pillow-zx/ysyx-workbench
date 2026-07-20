@@ -2,7 +2,7 @@ package npc.core
 
 import chisel3._
 import chisel3.util._
-import npc.bus.SimpleBusMasterIO
+import npc.bus.simplebus.SimpleBusMasterIO
 import npc.common.{MemSize, TrapCause}
 import npc.interface.Message
 
