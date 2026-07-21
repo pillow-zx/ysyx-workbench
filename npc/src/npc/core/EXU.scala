@@ -84,7 +84,7 @@ class EXU(xlen: Int) extends Module {
   next.selectedNextPc := selectedNextPc
   next.aluResult      := aluResult
 
-  when(instructionMisaligned) {
+  when(instructionMisaligned && !io.in.bits.exception.valid) {
     next.exception.valid := true.B
     next.exception.cause := TrapCause.InstAddrMisaligned
   }

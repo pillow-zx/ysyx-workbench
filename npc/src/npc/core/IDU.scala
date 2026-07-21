@@ -16,9 +16,10 @@ class IDU(xlen: Int) extends Module {
   private val decode: Decode = Module(new Decode(xlen))
   decode.io.inst := io.in.bits.inst
 
-  private val systemIllegal: Bool = decode.io.result.system.illegal
-  private val systemEcall:   Bool = decode.io.result.system.ecall
-  private val trapValid:     Bool = systemIllegal || systemEcall
+  private val systemIllegal:   Bool = decode.io.result.system.illegal
+  private val systemEcall:     Bool = decode.io.result.system.ecall
+  private val decodeTrapValid: Bool = systemIllegal || systemEcall
+  private val inputTrapValid:  Bool = io.in.bits.exception.valid
 
   io.regs.raddr1 := decode.io.result.rs1
   io.regs.raddr2 := decode.io.result.rs2
@@ -27,8 +28,12 @@ class IDU(xlen: Int) extends Module {
   next.rs1Data         := io.regs.rdata1
   next.rs2Data         := io.regs.rdata2
   next.decode          := decode.io.result
-  next.exception.valid := trapValid
-  next.exception.cause := Mux(systemEcall, TrapCause.EcallM, Mux(systemIllegal, TrapCause.IllegalInst, 0.U(xlen.W)))
+  next.exception.valid := inputTrapValid || decodeTrapValid
+  next.exception.cause := Mux(
+    inputTrapValid,
+    io.in.bits.exception.cause,
+    Mux(systemEcall, TrapCause.EcallM, Mux(systemIllegal, TrapCause.IllegalInst, 0.U(xlen.W)))
+  )
 
   io.out.bits  := next
   io.out.valid := io.in.valid

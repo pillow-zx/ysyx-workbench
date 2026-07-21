@@ -105,8 +105,11 @@ object TrapCause {
   val Width = 32
 
   val InstAddrMisaligned:  UInt = 0.U(Width.W)
+  val InstAccessFault:     UInt = 1.U(Width.W)
   val IllegalInst:         UInt = 2.U(Width.W)
   val LoadAddrMisaligned:  UInt = 4.U(Width.W)
+  val LoadAccessFault:     UInt = 5.U(Width.W)
   val StoreAddrMisaligned: UInt = 6.U(Width.W)
+  val StoreAccessFault:    UInt = 7.U(Width.W)
   val EcallM:              UInt = 11.U(Width.W)
 }

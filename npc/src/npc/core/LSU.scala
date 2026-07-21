@@ -2,9 +2,8 @@ package npc.core
 
 import chisel3._
 import chisel3.util._
-import npc.bus.axi4lite.Axi4LiteMasterIO
 import npc.common.{Constants, MemSize, TrapCause}
-import npc.interface.Message
+import npc.interface.{MemoryMasterIO, MemoryOperation, MemoryResponseCode, Message}
 
 object LsuState extends ChiselEnum {
   val sendReq, waitReadResp, waitWriteResp, output = Value
@@ -14,7 +13,7 @@ class LSU(xlen: Int) extends Module {
   val io = IO(new Bundle {
     val in:  DecoupledIO[Message] = Flipped(Decoupled(new Message(xlen)))
     val out: DecoupledIO[Message] = Decoupled(new Message(xlen))
-    val bus = new Axi4LiteMasterIO(Constants.addrWidth, Constants.dataWidth)
+    val memory = new MemoryMasterIO(Constants.addrWidth, Constants.dataWidth)
   })
 
   private val state:         LsuState.Type = RegInit(LsuState.sendReq)
@@ -67,20 +66,12 @@ class LSU(xlen: Int) extends Module {
   io.out.valid := false.B
   io.out.bits  := messageReg
 
-  // read
-  io.bus.ar.valid     := false.B
-  io.bus.ar.bits.addr := alignedAddress
-  io.bus.ar.bits.prot := DontCare
-  io.bus.r.ready      := false.B
-
-  // write
-  io.bus.aw.valid     := false.B
-  io.bus.w.valid      := false.B
-  io.bus.aw.bits.addr := alignedAddress
-  io.bus.aw.bits.prot := DontCare
-  io.bus.w.bits.data  := storeData
-  io.bus.w.bits.strb  := storeMask
-  io.bus.b.ready      := false.B
+  io.memory.request.valid          := false.B
+  io.memory.request.bits.address   := alignedAddress
+  io.memory.request.bits.operation := Mux(inputIsStore, MemoryOperation.write, MemoryOperation.read)
+  io.memory.request.bits.writeData := storeData
+  io.memory.request.bits.writeMask := storeMask
+  io.memory.response.ready         := false.B
 
   switch(state) {
     is(LsuState.sendReq) {
@@ -102,10 +93,10 @@ class LSU(xlen: Int) extends Module {
       }
 
       when(inputIsLoad) {
-        io.bus.ar.valid := io.in.valid
-        io.in.ready     := io.bus.ar.ready
+        io.memory.request.valid := io.in.valid
+        io.in.ready             := io.memory.request.ready
 
-        when(io.bus.ar.fire) {
+        when(io.memory.request.fire) {
           messageReg    := next
           byteOffsetReg := inputByteOffset
           state         := LsuState.waitReadResp
@@ -113,21 +104,20 @@ class LSU(xlen: Int) extends Module {
       }
 
       when(inputIsStore) {
-        io.bus.aw.valid := io.in.valid
-        io.bus.w.valid  := io.in.valid
-        io.in.ready     := io.bus.aw.ready && io.bus.w.ready
+        io.memory.request.valid := io.in.valid
+        io.in.ready             := io.memory.request.ready
 
-        when(io.bus.aw.fire && io.bus.w.fire) {
+        when(io.memory.request.fire) {
           messageReg := next
           state      := LsuState.waitWriteResp
         }
       }
     }
     is(LsuState.waitReadResp) {
-      io.bus.r.ready := true.B
+      io.memory.response.ready := true.B
 
-      when(io.bus.r.fire) {
-        val shiftedMemoryData: UInt = io.bus.r.bits.data >> (byteOffsetReg << 3)
+      when(io.memory.response.fire) {
+        val shiftedMemoryData: UInt = io.memory.response.bits.readData >> (byteOffsetReg << 3)
         val byteLoadData:      UInt = Mux(
           messageReg.decode.mem.unsigned,
           shiftedMemoryData(7, 0).pad(xlen),
@@ -150,16 +140,22 @@ class LSU(xlen: Int) extends Module {
         )
 
         val response = WireDefault(messageReg)
-        response.memData := formattedLoadData
-        messageReg       := response
-        state            := LsuState.output
+        response.memData         := formattedLoadData
+        response.exception.valid := io.memory.response.bits.code =/= MemoryResponseCode.okay
+        response.exception.cause := TrapCause.LoadAccessFault
+        messageReg               := response
+        state                    := LsuState.output
       }
     }
     is(LsuState.waitWriteResp) {
-      io.bus.b.ready := true.B
+      io.memory.response.ready := true.B
 
-      when(io.bus.b.fire) {
-        state := LsuState.output
+      when(io.memory.response.fire) {
+        val response = WireDefault(messageReg)
+        response.exception.valid := io.memory.response.bits.code =/= MemoryResponseCode.okay
+        response.exception.cause := TrapCause.StoreAccessFault
+        messageReg               := response
+        state                    := LsuState.output
       }
     }
     is(LsuState.output) {
