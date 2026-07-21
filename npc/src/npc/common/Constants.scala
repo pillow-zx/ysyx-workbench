@@ -6,4 +6,6 @@ object Constants {
   val RegCount     = 32
   val CsrAddrWidth = 12
   val WordBytes    = 4
+  val addrWidth    = 32
+  val dataWidth    = 32
 }

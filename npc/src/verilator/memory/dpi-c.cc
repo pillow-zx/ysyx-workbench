@@ -15,8 +15,8 @@ auto bindDpiAddressSpace(DpicBridge &bridge) -> void {
     dpiAddressSpace = &bridge;
 }
 
-auto unbindDpiAddressSpace(const DpicBridge &addressSpace) -> void {
-    assert(dpiAddressSpace == &addressSpace);
+auto unbindDpiAddressSpace(const DpicBridge &bridge) -> void {
+    assert(dpiAddressSpace == &bridge);
     dpiAddressSpace = nullptr;
 }
 

@@ -1,10 +1,10 @@
 package npc.core
 
 import chisel3._
-import npc.bus.simplebus.SimpleBus
-import npc.common.NpcConfig
+import npc.bus.axi4lite.AXI4LiteBus
+import npc.common.{Constants, NpcConfig}
 import npc.interface.{CommitInfo, DebugInfo}
-import npc.unit.{Csr, DpicMemory, RegFile}
+import npc.unit.{Csr, DpicMemoryAxi4Lite, RegFile}
 
 class CoreIO(xlen: Int) extends Bundle {
   val commit: CommitInfo = Output(new CommitInfo(xlen))
@@ -16,12 +16,17 @@ class Core(config: NpcConfig = NpcConfig()) extends Module {
 
   val io: CoreIO = IO(new CoreIO(config.xlen))
 
-  private val regs:    RegFile    = Module(new RegFile(config.xlen))
-  private val csr:     Csr        = Module(new Csr(config.xlen))
-  private val busIfu:  SimpleBus  = Module(new SimpleBus(config.xlen))
-  private val busIsu:  SimpleBus  = Module(new SimpleBus(config.xlen))
-  private val dpicIfu: DpicMemory = Module(new DpicMemory(config.xlen))
-  private val dpicIsu: DpicMemory = Module(new DpicMemory(config.xlen))
+  private val regs: RegFile = Module(new RegFile(config.xlen))
+  private val csr:  Csr     = Module(new Csr(config.xlen))
+
+  private val ifuBus:         AXI4LiteBus        = Module(new AXI4LiteBus(Constants.addrWidth, Constants.dataWidth))
+  private val isuBus:         AXI4LiteBus        = Module(new AXI4LiteBus(Constants.dataWidth, Constants.dataWidth))
+  private val axi4LiteIfuBus: DpicMemoryAxi4Lite = Module(
+    new DpicMemoryAxi4Lite(Constants.addrWidth, Constants.dataWidth)
+  )
+  private val axi4LiteIsuBus: DpicMemoryAxi4Lite = Module(
+    new DpicMemoryAxi4Lite(Constants.addrWidth, Constants.dataWidth)
+  )
 
   private val ifu: IFU = Module(new IFU(config.xlen, config.resetVector))
   private val idu: IDU = Module(new IDU(config.xlen))
@@ -29,14 +34,14 @@ class Core(config: NpcConfig = NpcConfig()) extends Module {
   private val lsu: LSU = Module(new LSU(config.xlen))
   private val wbu: WBU = Module(new WBU(config.xlen))
 
-  ifu.io.bus <> busIfu.io.upstream
-  busIfu.io.downstream <> dpicIfu.io
+  ifu.io.bus <> ifuBus.io.upstream
+  ifuBus.io.downstream <> axi4LiteIfuBus.io
   idu.io.in <> ifu.io.out
   idu.io.regs <> regs.io.read
   exu.io.in <> idu.io.out
   exu.io.epc := csr.io.epc
-  lsu.io.bus <> busIsu.io.upstream
-  busIsu.io.downstream <> dpicIsu.io
+  lsu.io.bus <> isuBus.io.upstream
+  isuBus.io.downstream <> axi4LiteIsuBus.io
   lsu.io.in <> exu.io.out
   wbu.io.in <> lsu.io.out
   wbu.io.csr <> csr.io.commit

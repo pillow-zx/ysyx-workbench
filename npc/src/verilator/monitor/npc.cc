@@ -104,6 +104,7 @@ auto Npc::run() -> void {
                 std::cout << "Unknown command." << std::endl;
             }
         } catch (const std::exception &error) {
+            status_ = NpcStatus::Exit;
             std::cout << "Invalid command argument: " << error.what() << std::endl;
         }
     }

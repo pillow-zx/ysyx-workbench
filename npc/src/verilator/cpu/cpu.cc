@@ -148,10 +148,8 @@ private:
     Disassembler disassembler_;
 
     auto initializeItrace(const std::optional<std::string> &itracePath) -> void {
-        if (!itracePath.has_value()) {
-            return;
-        }
-        itraceFile_.open(itracePath.value());
+        const auto path = itracePath.value_or("build/npc-log.txt");
+        itraceFile_.open(path);
         if (not itraceFile_.is_open()) {
             throw std::runtime_error("Failed to initialize Itrace, cannot open the file path");
         }
