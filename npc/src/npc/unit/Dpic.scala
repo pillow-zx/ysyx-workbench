@@ -38,7 +38,7 @@ class DpicMemory(xlen: Int) extends Module {
   val io: MemorySlaveIO = IO(new MemorySlaveIO(xlen, xlen))
 
   private val state:       DpicState.Type = RegInit(DpicState.idle)
-  private val responseReg: MemoryResponse       = Reg(new MemoryResponse(xlen))
+  private val responseReg: MemoryResponse = Reg(new MemoryResponse(xlen))
 
   io.request.ready  := !reset.asBool && state === DpicState.idle
   io.response.valid := state === DpicState.response
