@@ -32,13 +32,14 @@ object DpicState extends ChiselEnum {
   val idle, response = Value
 }
 
-class DpicMemory(xlen: Int) extends Module {
-  require(xlen == 32, "the current DPI memory interface supports RV32 only")
+class DpicMemory(addrWidth: Int, dataWidth: Int) extends Module {
+  require(addrWidth == 32, "the current DPI memory interface supports RV32 only")
+  require(dataWidth == 32, "the current DPI memory interface supports RV32 only")
 
-  val io: MemorySlaveIO = IO(new MemorySlaveIO(xlen, xlen))
+  val io: MemorySlaveIO = IO(new MemorySlaveIO(addrWidth, dataWidth))
 
   private val state:       DpicState.Type = RegInit(DpicState.idle)
-  private val responseReg: MemoryResponse = Reg(new MemoryResponse(xlen))
+  private val responseReg: MemoryResponse = Reg(new MemoryResponse(dataWidth))
 
   io.request.ready  := !reset.asBool && state === DpicState.idle
   io.response.valid := state === DpicState.response
