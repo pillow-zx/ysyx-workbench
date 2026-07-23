@@ -3,8 +3,17 @@ package npc.bus.axi4lite
 import chisel3._
 import chisel3.util._
 
+case class AddressSpaceSet(base: BigInt, size: BigInt) {
+  require(size > 0, "address space size must be positive")
+
+  def contains(addr: UInt): Bool = {
+    addr >= base.U && addr < (base + size).U
+  }
+}
+
 object MMIOAddressMap {
-  val SERIAL: UInt = "ha00003f8".U(32.W)
+  val CLINT:  AddressSpaceSet = AddressSpaceSet(BigInt("a0000048", 16), 8)
+  val SERIAL: AddressSpaceSet = AddressSpaceSet(BigInt("a00003f8", 16), 1)
 }
 
 object AXI4LiteInterconnectState extends ChiselEnum {
@@ -13,12 +22,12 @@ object AXI4LiteInterconnectState extends ChiselEnum {
 
 class AXI4LiteInterconnect(addrWidth: Int, dataWidth: Int, masterCount: Int, slaveCount: Int) extends Module {
   require(masterCount == 2, "the current interconnect supports exactly IFU and LSU")
-  require(slaveCount == 2, "the current interconnect supports exactly Uart and Dpic")
+  require(slaveCount == 3, "the current interconnect supports exactly Memory, Uart and Clint")
   val io = IO(new Bundle {
     val upstream:   Vec[Axi4LiteSlaveIO]  = Vec(masterCount, new Axi4LiteSlaveIO(addrWidth, dataWidth))
     val downstream: Vec[Axi4LiteMasterIO] = Vec(slaveCount, new Axi4LiteMasterIO(addrWidth, dataWidth))
   })
-  private val ownerWidth:  Int = math.max(1, log2Ceil(masterCount))
+  private val ownerWidth: Int = math.max(1, log2Ceil(masterCount))
   private val ownerReg:    UInt = RegInit(0.U(ownerWidth.W))
   private val targetWidth: Int  = math.max(1, log2Ceil(slaveCount))
   private val targetReg:   UInt = RegInit(0.U(targetWidth.W))
@@ -53,7 +62,13 @@ class AXI4LiteInterconnect(addrWidth: Int, dataWidth: Int, masterCount: Int, sla
   }
 
   private def decode(addr: UInt): UInt = {
-    Mux(addr === MMIOAddressMap.SERIAL, 1.U, 0.U)
+    MuxCase(
+      0.U(targetWidth.W),
+      Seq(
+        MMIOAddressMap.SERIAL.contains(addr) -> 1.U(targetWidth.W),
+        MMIOAddressMap.CLINT.contains(addr)  -> 2.U(targetWidth.W)
+      )
+    )
   }
 
   private def hasRequest(master: Axi4LiteSlaveIO): Bool = {
@@ -86,12 +101,12 @@ class AXI4LiteInterconnect(addrWidth: Int, dataWidth: Int, masterCount: Int, sla
       }
 
       when(selectedValid && selectedHasRead) {
-        val selectedSlave: UInt = decode(owner.ar.bits.addr)
-        val target: Axi4LiteMasterIO = io.downstream(selectedSlave)
+        val selectedSlave: UInt             = decode(owner.ar.bits.addr)
+        val target:        Axi4LiteMasterIO = io.downstream(selectedSlave)
 
         target.ar.valid := owner.ar.valid
         target.ar.bits  := owner.ar.bits
-        owner.ar.ready := target.ar.ready
+        owner.ar.ready  := target.ar.ready
 
         when(target.ar.fire) {
           ownerReg    := selectedMaster
@@ -107,7 +122,7 @@ class AXI4LiteInterconnect(addrWidth: Int, dataWidth: Int, masterCount: Int, sla
 
         target.aw.valid := owner.aw.valid
         target.aw.bits  := owner.aw.bits
-        owner.aw.ready := target.aw.ready
+        owner.aw.ready  := target.aw.ready
 
         when(target.aw.fire) {
           ownerReg    := selectedMaster
@@ -120,7 +135,6 @@ class AXI4LiteInterconnect(addrWidth: Int, dataWidth: Int, masterCount: Int, sla
     is(AXI4LiteInterconnectState.sendWriteRequest) {
       val owner:  Axi4LiteSlaveIO  = io.upstream(ownerReg)
       val target: Axi4LiteMasterIO = io.downstream(targetReg)
-
 
       target.w.valid := owner.w.valid
       target.w.bits  := owner.w.bits
@@ -149,7 +163,7 @@ class AXI4LiteInterconnect(addrWidth: Int, dataWidth: Int, masterCount: Int, sla
       target.b.ready := owner.b.ready
 
       when(target.b.fire) {
-        state  := AXI4LiteInterconnectState.idle
+        state := AXI4LiteInterconnectState.idle
       }
     }
   }

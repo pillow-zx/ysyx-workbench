@@ -3,7 +3,8 @@ package npc
 import chisel3._
 import chisel3.simulator.EphemeralSimulator._
 import npc.common.{AluSrc1, BranchOp, CsrAddr, CsrCmd, PcSel, WbSel}
-import npc.unit.{BranchUnit, Csr, Decode}
+import npc.interface.{MemoryOperation, MemoryResponseCode}
+import npc.unit.{BranchUnit, Clint, Csr, Decode}
 import org.scalatest.flatspec.AnyFlatSpec
 
 class NpcUnitSpec extends AnyFlatSpec {
@@ -93,6 +94,66 @@ class NpcUnitSpec extends AnyFlatSpec {
 
       dut.io.commit.addr.poke(CsrAddr.Mcause)
       dut.io.commit.rdata.expect(2.U)
+    }
+  }
+
+  behavior.of("Clint")
+
+  it should "decode the low and high halves of mtime" in {
+    simulate(new Clint(32, 32)) { dut =>
+      dut.reset.poke(true.B)
+      dut.io.request.valid.poke(false.B)
+      dut.io.response.ready.poke(false.B)
+      dut.clock.step()
+      dut.reset.poke(false.B)
+
+      dut.io.request.bits.address.poke("ha000004c".U)
+      dut.io.request.bits.operation.poke(MemoryOperation.write)
+      dut.io.request.bits.writeData.poke("hdeadbeef".U)
+      dut.io.request.bits.writeMask.poke("hf".U)
+      dut.io.request.valid.poke(true.B)
+      dut.io.request.ready.expect(true.B)
+      dut.clock.step()
+      dut.io.request.valid.poke(false.B)
+      dut.io.response.valid.expect(true.B)
+      dut.io.response.bits.code.expect(MemoryResponseCode.okay)
+      dut.io.response.ready.poke(true.B)
+      dut.clock.step()
+      dut.io.response.ready.poke(false.B)
+
+      dut.io.request.bits.operation.poke(MemoryOperation.read)
+      dut.io.request.bits.writeData.poke(0.U)
+      dut.io.request.bits.writeMask.poke(0.U)
+      dut.io.request.valid.poke(true.B)
+      dut.io.request.ready.expect(true.B)
+      dut.clock.step()
+      dut.io.request.valid.poke(false.B)
+      dut.io.response.valid.expect(true.B)
+      dut.io.response.bits.readData.expect("hdeadbeef".U)
+      dut.io.response.bits.code.expect(MemoryResponseCode.okay)
+      dut.io.response.ready.poke(true.B)
+      dut.clock.step()
+      dut.io.response.ready.poke(false.B)
+
+      dut.io.request.bits.address.poke("ha0000048".U)
+      dut.io.request.valid.poke(true.B)
+      dut.io.request.ready.expect(true.B)
+      dut.clock.step()
+      dut.io.request.valid.poke(false.B)
+      dut.io.response.valid.expect(true.B)
+      dut.io.response.bits.readData.expect(3.U)
+      dut.io.response.bits.code.expect(MemoryResponseCode.okay)
+      dut.io.response.ready.poke(true.B)
+      dut.clock.step()
+      dut.io.response.ready.poke(false.B)
+
+      dut.io.request.bits.address.poke("ha000004a".U)
+      dut.io.request.valid.poke(true.B)
+      dut.io.request.ready.expect(true.B)
+      dut.clock.step()
+      dut.io.request.valid.poke(false.B)
+      dut.io.response.valid.expect(true.B)
+      dut.io.response.bits.code.expect(MemoryResponseCode.decodeError)
     }
   }
 }

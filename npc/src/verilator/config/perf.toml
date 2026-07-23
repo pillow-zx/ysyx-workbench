@@ -8,8 +8,8 @@ wtrace = false
 difftest = false
 
 [devices]
-serial = true
-rtc = true
+serial = false
+rtc = false
 
 [args]
 batch = true

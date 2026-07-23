@@ -8,8 +8,8 @@ wtrace = true
 difftest = true
 
 [devices]
-serial = true
-rtc = true
+serial = false
+rtc = false
 
 [args]
 

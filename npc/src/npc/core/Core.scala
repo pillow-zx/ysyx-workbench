@@ -4,7 +4,7 @@ import chisel3._
 import npc.bus.axi4lite.{AXI4LiteInterconnect, Axi4LiteMasterAdapter, Axi4LiteSlaveAdapter}
 import npc.common.{Constants, NpcConfig}
 import npc.interface.{CommitInfo, DebugInfo}
-import npc.unit.{Csr, DpicMemory, RegFile, Uart}
+import npc.unit.{Clint, Csr, DpicMemory, RegFile, Uart}
 
 class CoreIO(xlen: Int) extends Bundle {
   val commit: CommitInfo = Output(new CommitInfo(xlen))
@@ -26,17 +26,21 @@ class Core(config: NpcConfig = NpcConfig()) extends Module {
     new Axi4LiteMasterAdapter(Constants.addrWidth, Constants.dataWidth)
   )
   private val interconnect:       AXI4LiteInterconnect  = Module(
-    new AXI4LiteInterconnect(Constants.addrWidth, Constants.dataWidth, 2, 2)
+    new AXI4LiteInterconnect(Constants.addrWidth, Constants.dataWidth, 2, 3)
   )
   private val memorySlaveAdapter: Axi4LiteSlaveAdapter  = Module(
     new Axi4LiteSlaveAdapter(Constants.addrWidth, Constants.dataWidth)
   )
-  private val uartSlaveAdapter: Axi4LiteSlaveAdapter    = Module(
+  private val uartSlaveAdapter:   Axi4LiteSlaveAdapter  = Module(
+    new Axi4LiteSlaveAdapter(Constants.addrWidth, Constants.dataWidth)
+  )
+  private val clintSlaveAdapter:  Axi4LiteSlaveAdapter  = Module(
     new Axi4LiteSlaveAdapter(Constants.addrWidth, Constants.dataWidth)
   )
 
   private val memory: DpicMemory = Module(new DpicMemory(Constants.addrWidth, Constants.dataWidth))
   private val uart:   Uart       = Module(new Uart(Constants.addrWidth, Constants.dataWidth))
+  private val clint:  Clint      = Module(new Clint(Constants.addrWidth, Constants.dataWidth))
 
   private val ifu: IFU = Module(new IFU(config.xlen, config.resetVector))
   private val idu: IDU = Module(new IDU(config.xlen))
@@ -50,8 +54,10 @@ class Core(config: NpcConfig = NpcConfig()) extends Module {
   lsuMasterAdapter.io.bus <> interconnect.io.upstream(1)
   interconnect.io.downstream(0) <> memorySlaveAdapter.io.bus
   interconnect.io.downstream(1) <> uartSlaveAdapter.io.bus
+  interconnect.io.downstream(2) <> clintSlaveAdapter.io.bus
   memorySlaveAdapter.io.memory <> memory.io
   uartSlaveAdapter.io.memory <> uart.io
+  clintSlaveAdapter.io.memory <> clint.io
 
   idu.io.in <> ifu.io.out
   idu.io.regs <> regs.io.read
