@@ -18,6 +18,7 @@
 src/verilator/config.toml
 src/verilator/include/generated/autoconfig.hh
 build/
+.metals/
 
 # mill
 !*.mill
