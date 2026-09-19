@@ -1,113 +1,139 @@
-VERILATOR = verilator
+PROJECT := npc
+TOP := ysyxSoCFull
+
+VERILATOR ?= verilator
 PYTHON ?= python3
 
-TOPNAME = ysyxSoCFull
-PROJECT_NAME = npc
+BUILD_DIR := build
+OBJ_DIR := $(BUILD_DIR)/obj_dir
+BIN := $(OBJ_DIR)/V$(TOP)
+FILELIST := $(BUILD_DIR)/filelist.f
+BUILD_SIG := $(BUILD_DIR)/.verilator-build-signature
 
-BUILD_DIR = build
-OBJ_DIR = $(BUILD_DIR)/obj_dir
-BIN = $(OBJ_DIR)/V$(TOPNAME)
-FILELIST = $(BUILD_DIR)/filelist.f
-BUILD_SIGNATURE = $(BUILD_DIR)/.verilator-build-signature
-
-VERILATOR_SRC_DIR = src/verilator
-WAVE_SRC_DIR = $(VERILATOR_SRC_DIR)/wave
-CHISEL_SRC = $(shell find src -name '*.scala' | sort)
-AUTOCONFIG_SCRIPT = $(VERILATOR_SRC_DIR)/config/generate_config.py
-AUTOCONFIG_HEADER = $(VERILATOR_SRC_DIR)/include/generated/autoconfig.hh
-
-YSYXSOC_VERILOG = $(shell find $(YSYXSOC_HOME)/perip -name '*.v' | sort)
-YSYXSOC_FULL = $(YSYXSOC_HOME)/build/ysyxSoCFull.v
-
-INC_PATH ?= $(abspath $(VERILATOR_SRC_DIR)/include) \
-            $(YSYXSOC_HOME)/perip/uart16550/rtl \
-            $(YSYXSOC_HOME)/perip/spi/rtl
-INCFLAGS = $(addprefix -I,$(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -std=c++23 -O3 -pthread
-
-CAPSTONE_CFLAGS = $(shell pkg-config --cflags capstone)
-CAPSTONE_LIBS = $(shell pkg-config --libs capstone)
-CXXFLAGS += $(CAPSTONE_CFLAGS)
-LDFLAGS += $(CAPSTONE_LIBS)
+JOBS ?= 0
 
 ARGS ?=
 DEFCONFIG ?=
-WAVE ?= $(if $(filter perf perf.toml,$(DEFCONFIG)),none,fst)
-BUILD_JOBS ?= 0
-SIM_THREADS ?= 1
 
-ifeq ($(WAVE),fst)
-TRACE_FLAGS = --trace-fst
-WAVE_SRC = $(WAVE_SRC_DIR)/fst.cc
-else ifeq ($(WAVE),none)
-TRACE_FLAGS =
-WAVE_SRC = $(WAVE_SRC_DIR)/none.cc
-else
-$(error WAVE must be one of: fst, none)
+SIM_DIR := src/verilator
+SIM_INC_DIR := $(SIM_DIR)/include
+WAVE_DIR := $(SIM_DIR)/wave
+CONFIG_DIR := $(SIM_DIR)/config
+
+YSYXSOC_DIR := $(YSYXSOC_HOME)
+
+AUTOCONFIG_SCRIPT := $(CONFIG_DIR)/generate_config.py
+AUTOCONFIG_HEADER := $(SIM_INC_DIR)/generated/autoconfig.hh
+
+WAVE ?= $(if $(filter perf perf.toml,$(DEFCONFIG)),none,fst)
+VALID_WAVES := fst none
+
+ifeq ($(filter $(WAVE),$(VALID_WAVES)),)
+$(error Invalid WAVE='$(WAVE)', expected one of: $(VALID_WAVES))
 endif
 
-SRC = $(shell find $(VERILATOR_SRC_DIR) -name '*.cc' ! -path '$(WAVE_SRC_DIR)/*' | sort) $(WAVE_SRC)
+ifeq ($(WAVE),fst)
+WAVE_SRC := $(WAVE_DIR)/fst.cc
+VERILATOR_TRACE_FLAGS := --trace-fst
+else
+WAVE_SRC := $(WAVE_DIR)/none.cc
+VERILATOR_TRACE_FLAGS :=
+endif
 
-VERILATOR_MODEL_FLAGS = -MMD --cc $(TRACE_FLAGS) \
-	--timescale "1ns/1ns" --no-timing \
-	-O3 --x-assign fast --x-initial fast --noassert \
-	--output-split 20000 --threads $(SIM_THREADS)
-VERILATOR_CFLAGS += --build -j $(BUILD_JOBS) $(VERILATOR_MODEL_FLAGS)
+NPC_SRCS := $(shell find src -type f -name '*.scala' | sort)
 
-BUILD_OPTIONS = $(VERILATOR_MODEL_FLAGS) | $(CXXFLAGS) | $(LDFLAGS)
+YSYXSOC_PERIP_SRCS := $(shell find $(YSYXSOC_DIR)/perip -type f -name '*.v' | sort)
+YSYXSOC_TOP := $(YSYXSOC_DIR)/build/ysyxSoCFull.v
+YSYXSOC_SRCS := $(YSYXSOC_PERIP_SRCS) $(YSYXSOC_TOP)
+
+SIM_COMMON_SRCS := $(shell find $(SIM_DIR) -type f -name '*.cc' ! -path '$(WAVE_DIR)/*' | sort)
+SIM_SRCS := $(SIM_COMMON_SRCS) $(WAVE_SRC)
+
+CXX_INC_DIRS := $(abspath $(SIM_INC_DIR))
+RTL_INC_DIRS := $(YSYXSOC_DIR)/perip/uart16550/rtl $(YSYXSOC_DIR)/perip/spi/rtl
+
+CXX_INC_FLAGS := $(addprefix -I,$(CXX_INC_DIRS))
+RTL_INC_FLAGS := $(addprefix -I,$(RTL_INC_DIRS))
+
+CAPSTONE_CFLAGS := $(shell pkg-config --cflags capstone)
+CAPSTONE_LIBS := $(shell pkg-config --libs capstone)
+
+CXXFLAGS := -std=c++23 -O3 -pthread
+CXXFLAGS += $(CXX_INC_FLAGS)
+CXXFLAGS += $(CAPSTONE_CFLAGS)
+
+LDFLAGS := $(CAPSTONE_LIBS)
+
+VERILATOR_BUILD_FLAGS := --cc --exe --build -j $(JOBS)
+VERILATOR_INPUT_FLAGS := --top-module $(TOP) -F $(FILELIST) $(RTL_INC_FLAGS)
+VERILATOR_TIMING_FLAGS := --timescale 1ns/1ns --no-timing
+VERILATOR_X_FLAGS := --x-assign fast --x-initial fast
+VERILATOR_OPT_FLAGS := -O3 --noassert
+VERILATOR_DEP_FLAGS := -MMD
+VERILATOR_OUTPUT_FLAGS := --output-split 20000 --output-split-cfuncs 10000 --Mdir $(OBJ_DIR)
+
+VERILATOR_FLAGS := $(VERILATOR_BUILD_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_INPUT_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_TIMING_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_X_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_OPT_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_DEP_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_OUTPUT_FLAGS)
+VERILATOR_FLAGS += $(VERILATOR_TRACE_FLAGS)
+
+BUILD_OPTIONS := $(VERILATOR_FLAGS) | $(CXXFLAGS) | $(LDFLAGS)
+
+.PHONY: default all
 
 default: all
 
 all: sim
 
-test:
-	mill -i test
+.PHONY: verilog
 
 verilog: $(FILELIST)
 
-$(FILELIST): $(CHISEL_SRC) build.mill $(YSYXSOC_VERILOG) $(YSYXSOC_FULL) | $(BUILD_DIR)
+$(FILELIST): $(NPC_SRCS) build.mill $(YSYXSOC_SRCS) | $(BUILD_DIR)
 	$(call git_commit, "generate verilog")
 	mill -i runMain npc.Elaborate --target-dir $(BUILD_DIR)
-	@printf '%s\n' $(YSYXSOC_VERILOG) $(YSYXSOC_FULL) >> $@
+	@printf '%s\n' $(YSYXSOC_SRCS) >> $@
+
+.PHONY: autoconfig
 
 autoconfig: $(AUTOCONFIG_HEADER)
 
 $(AUTOCONFIG_HEADER): FORCE
-	$(PYTHON) $(AUTOCONFIG_SCRIPT) --defconfig "$(DEFCONFIG)"
+	$(Q)$(PYTHON) $(AUTOCONFIG_SCRIPT) --defconfig "$(DEFCONFIG)"
 
 $(BUILD_DIR):
-	mkdir -p $@
+	$(Q)@mkdir -p $@
 
-$(BUILD_SIGNATURE): FORCE | $(BUILD_DIR)
-	@printf '%s\n' '$(BUILD_OPTIONS)' > $@.tmp
-	@if cmp -s $@.tmp $@; then rm -f $@.tmp; else mv $@.tmp $@; fi
+$(BUILD_SIG): FORCE | $(BUILD_DIR)
+	$(Q)printf '%s\n' '$(BUILD_OPTIONS)' > $@.tmp
+	$(Q)if cmp -s $@.tmp $@; then rm -f $@.tmp; else mv $@.tmp $@; fi
+
+.PHONY: verilator-build
 
 verilator-build: $(BIN)
 
-$(BIN): $(FILELIST) $(SRC) $(AUTOCONFIG_HEADER) $(BUILD_SIGNATURE) Makefile
-	@echo "Building $(PROJECT_NAME) with Verilator..."
-	$(VERILATOR) $(VERILATOR_CFLAGS) $(INCFLAGS) \
-		--top-module $(TOPNAME) -F $(FILELIST) $(SRC) \
-		$(addprefix -CFLAGS ,$(CXXFLAGS)) $(addprefix -LDFLAGS ,$(LDFLAGS)) \
-		--Mdir $(OBJ_DIR) --exe
+$(BIN): $(FILELIST) $(SIM_SRCS) $(AUTOCONFIG_HEADER) $(BUILD_SIG) Makefile
+	$(VERILATOR) $(VERILATOR_FLAGS) $(SIM_SRCS) -CFLAGS "$(CXXFLAGS)" -LDFLAGS "$(LDFLAGS)"
+
+.PHONY: sim run
 
 sim: verilator-build
 	$(call git_commit, "sim RTL") # DO NOT REMOVE THIS LINE!!!
-	@echo "Running simulation with args: $(ARGS)"
-	$(BIN) $(ARGS)
+	echo "Running $(BIN) $(ARGS)"
+	$(Q)$(BIN) $(ARGS)
 
 run: verilator-build
-	@echo "Running simulation with args: $(ARGS)"
+	$(quiet_run)
 	$(BIN) $(ARGS)
 
-help:
-	mill -i runMain npc.Elaborate --help
+.PHONY: reformat bsp idea
 
 reformat:
 	mill -i __.reformat
-
-checkformat:
-	mill -i __.checkFormat
 
 bsp:
 	mill -i mill.bsp.BSP/install
@@ -115,10 +141,10 @@ bsp:
 idea:
 	mill -i mill.idea.GenIdea/idea
 
-clean:
-	@rm -rf $(BUILD_DIR)
+.PHONY: clean FORCE
 
-.PHONY: default all test verilog autoconfig verilator-build sim run help reformat checkformat bsp idea clean FORCE
+clean:
+	rm -rf $(BUILD_DIR)
 
 FORCE:
 
