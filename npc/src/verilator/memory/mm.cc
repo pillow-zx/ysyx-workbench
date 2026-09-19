@@ -27,7 +27,7 @@ static constexpr auto toString(const MemoryOperation op) -> std::string_view {
     std::unreachable();
 }
 
-static inline auto mtrace(const MemoryOperation op, std::uint32_t addr, std::uint32_t len, std::uint32_t data) -> void {
+static auto mtrace(const MemoryOperation op, std::uint32_t addr, std::uint32_t len, std::uint32_t data) -> void {
     std::println("[MTRACE] {:<5} addr={:#010x} len={} data={:#010x}",
                  toString(op), addr, len, data);
 }
@@ -38,10 +38,6 @@ auto Memory::init(const std::string &filename) -> bool {
 }
 
 auto Memory::getMemory() -> std::span<const std::uint8_t> { return memory_; }
-
-auto Memory::fetchInst(const std::uint32_t addr) -> std::uint32_t {
-    return readData(addr, sizeof(std::uint32_t));
-}
 
 auto Memory::readData(const std::uint32_t addr, const std::uint32_t size) -> std::uint32_t {
     if (size == 0 || size > sizeof(std::uint32_t) || addr < MEMORYSTART) {

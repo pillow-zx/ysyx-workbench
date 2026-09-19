@@ -63,6 +63,6 @@ target_compile_definitions(npc_verilator PRIVATE
   VM_VPI=0
 )
 
-if(NOT EXISTS "${VERILATOR_MODEL_DIR}/VCore.h")
-  message(STATUS "Run `make verilator-build` to generate VCore.h before building npc_verilator.")
+if(NOT EXISTS "${VERILATOR_MODEL_DIR}/VysyxSoCFull.h")
+  message(STATUS "Run `make verilator-build` to generate VysyxSoCFull.h before building npc_verilator.")
 endif()

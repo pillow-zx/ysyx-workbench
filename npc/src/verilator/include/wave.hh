@@ -4,13 +4,13 @@
 #include <memory>
 #include <string>
 
-class VCore;
+class VysyxSoCFull;
 
 class WaveWriter {
 public:
     virtual ~WaveWriter() = default;
 
-    virtual auto attach(VCore &top) -> void = 0;
+    virtual auto attach(VysyxSoCFull &top) -> void = 0;
     virtual auto open(const std::string &path) -> void = 0;
     virtual auto close() -> void = 0;
     virtual auto dump(std::uint64_t time) -> void = 0;

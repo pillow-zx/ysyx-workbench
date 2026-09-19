@@ -7,6 +7,10 @@ object MemoryOperation extends ChiselEnum {
   val read, write = Value
 }
 
+object MemorySize extends ChiselEnum {
+  val byte, half, word = Value
+}
+
 object MemoryResponseCode extends ChiselEnum {
   val okay, accessFault, decodeError = Value
 }
@@ -14,13 +18,14 @@ object MemoryResponseCode extends ChiselEnum {
 class MemoryRequest(addrWidth: Int, dataWidth: Int) extends Bundle {
   val address:   UInt                 = UInt(addrWidth.W)
   val operation: MemoryOperation.Type = MemoryOperation()
+  val size:      MemorySize.Type      = MemorySize()
   val writeData: UInt                 = UInt(dataWidth.W)
   val writeMask: UInt                 = UInt((dataWidth / 8).W)
 }
 
 class MemoryResponse(dataWidth: Int) extends Bundle {
-  val readData: UInt                    = UInt(dataWidth.W)
-  val code:     MemoryResponseCode.Type = MemoryResponseCode()
+  val readData:     UInt                    = UInt(dataWidth.W)
+  val responseCode: MemoryResponseCode.Type = MemoryResponseCode()
 }
 
 class MemoryMasterIO(addrWidth: Int, dataWidth: Int) extends Bundle {

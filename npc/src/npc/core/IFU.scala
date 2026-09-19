@@ -3,7 +3,7 @@ package npc.core
 import chisel3._
 import chisel3.util._
 import npc.common.{Constants, TrapCause}
-import npc.interface.{MemoryMasterIO, MemoryOperation, MemoryResponseCode, Message}
+import npc.interface.{MemoryMasterIO, MemoryOperation, MemoryResponseCode, MemorySize, Message}
 
 object IFUState extends ChiselEnum {
   val sendReq, waitResp, output = Value
@@ -24,6 +24,7 @@ class IFU(xlen: Int, resetVector: BigInt) extends Module {
   io.memory.request.valid          := !reset.asBool && state === IFUState.sendReq
   io.memory.request.bits.address   := pc
   io.memory.request.bits.operation := MemoryOperation.read
+  io.memory.request.bits.size      := MemorySize.word
   io.memory.request.bits.writeData := 0.U
   io.memory.request.bits.writeMask := 0.U
   io.memory.response.ready         := state === IFUState.waitResp
@@ -41,7 +42,7 @@ class IFU(xlen: Int, resetVector: BigInt) extends Module {
       when(io.memory.response.fire) {
         msgReg.pc              := pc
         msgReg.inst            := io.memory.response.bits.readData
-        msgReg.exception.valid := io.memory.response.bits.code =/= MemoryResponseCode.okay
+        msgReg.exception.valid := io.memory.response.bits.responseCode =/= MemoryResponseCode.okay
         msgReg.exception.cause := TrapCause.InstAccessFault
         state                  := IFUState.output
       }

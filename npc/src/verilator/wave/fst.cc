@@ -1,6 +1,6 @@
 #include <wave.hh>
 
-#include "VCore.h"
+#include "VysyxSoCFull.h"
 #include "verilated.h"
 #include "verilated_fst_c.h"
 
@@ -12,7 +12,7 @@ constexpr int TraceDepth = 5;
 
 class FstWaveWriter final : public WaveWriter {
 public:
-    auto attach(VCore &top) -> void override {
+    auto attach(VysyxSoCFull &top) -> void override {
         top.trace(&trace_, TraceDepth);
     }
 

@@ -2,7 +2,6 @@
 #include <iostream>
 #include <string>
 
-#include <dpi.hh>
 #include <mm.hh>
 #include <monitor.hh>
 #include <npc.hh>
@@ -11,22 +10,6 @@ Npc::Npc(const int argc, char *argv[], const NpcOptions &options)
     : cpu_(argc, argv, options.log, options.elf), batchMode_(options.batch) {
     if (!Memory::init(options.image)) {
         status_ = NpcStatus::Exit;
-        return;
-    }
-
-    if constexpr (config::devices::serial) {
-        mmio_.map("serial", SERIALBASE, 8, serial_);
-    }
-    if constexpr (config::devices::rtc) {
-        mmio_.map("rtc", RTCBASE, 8, rtc_);
-    }
-
-    bindDpiAddressSpace(bridge);
-    dpiBound_ = true;
-
-    cpu_.reset();
-    if constexpr (config::difftest::difftest) {
-        cpu_.initDifftest(Memory::getBaseAddress(), Memory::getMemory());
     }
 }
 
@@ -35,10 +18,6 @@ Npc::~Npc() {
         std::cout << "HIT GOOD TRAP" << std::endl;
     } else {
         std::cout << "HIT BAD TRAP" << std::endl;
-    }
-
-    if (dpiBound_) {
-        unbindDpiAddressSpace(bridge);
     }
 }
 

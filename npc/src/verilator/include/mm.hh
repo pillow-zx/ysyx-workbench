@@ -15,8 +15,6 @@ public:
 
     [[nodiscard]] static auto getMemory() -> std::span<const std::uint8_t>;
 
-    [[nodiscard]] static auto fetchInst(std::uint32_t addr) -> std::uint32_t;
-
     [[nodiscard]] static auto readData(std::uint32_t addr, std::uint32_t size) -> std::uint32_t;
 
     static auto writeData(std::uint32_t addr, std::uint32_t data, std::uint32_t wmask) -> void;

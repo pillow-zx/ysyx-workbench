@@ -1,10 +1,9 @@
 package npc
 
 import circt.stage.ChiselStage
-import npc.core.Core
 
-object Elaborate extends App {
-  private val firtoolOption = Array(
+object ElaborateOptions {
+  val firtool: Array[String] = Array(
     "--default-layer-specialization=enable",
     "--verification-flavor=immediate",
     "--lowering-options=" + List(
@@ -13,6 +12,8 @@ object Elaborate extends App {
       "locationInfoStyle=wrapInAtSquareBracket"
     ).mkString(",")
   )
+}
 
-  ChiselStage.emitSystemVerilogFile(new Core, args, firtoolOption)
+object Elaborate extends App {
+  ChiselStage.emitSystemVerilogFile(new ysyx_00000000, args, ElaborateOptions.firtool)
 }

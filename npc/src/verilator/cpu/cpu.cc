@@ -1,4 +1,4 @@
-#include "VCore.h"
+#include "VysyxSoCFull.h"
 #include "verilated.h"
 
 #include <algorithm>
@@ -33,6 +33,10 @@ public:
 
     Impl(const int argc, char *argv[]) : top(&context) {
         context.commandArgs(argc, argv);
+        top.externalPins_gpio_in = 0;
+        top.externalPins_ps2_clk = 0;
+        top.externalPins_ps2_data = 0;
+        top.externalPins_uart_rx = 0;
         waveWriter = createWaveWriter(config::trace::wtrace);
         if (waveWriter) {
             waveWriter->attach(top);
@@ -75,7 +79,7 @@ public:
     }
 
     VerilatedContext context;
-    VCore top;
+    VysyxSoCFull top;
     std::unique_ptr<WaveWriter> waveWriter;
 };
 
@@ -548,8 +552,10 @@ Cpu::Cpu(const int argc, char *argv[],
          const std::optional<std::string> &itracePath,
          const std::optional<std::string> &elfPath)
     : impl_(std::make_unique<Impl>(argc, argv)),
-      trace_(std::make_unique<Trace>(itracePath, elfPath)),
-      diff_(std::make_unique<DiffTest>()) {
+      trace_(std::make_unique<Trace>(itracePath, elfPath)) {
+    if constexpr (config::difftest::difftest) {
+        diff_ = std::make_unique<DiffTest>();
+    }
 }
 
 Cpu::~Cpu() = default;

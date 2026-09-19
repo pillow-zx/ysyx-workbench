@@ -2,8 +2,8 @@ package npc.unit
 
 import chisel3._
 import chisel3.util._
-import npc.bus.axi4lite.MMIOAddressMap
 import npc.interface.{MemoryOperation, MemoryResponse, MemoryResponseCode, MemorySlaveIO}
+import npc.memory.SimulationAddressMap
 
 class Clint(addrWidth: Int, dataWidth: Int) extends Module {
   require(dataWidth == 32, "the current Clint implementation requires a 32-bit data bus")
@@ -14,8 +14,8 @@ class Clint(addrWidth: Int, dataWidth: Int) extends Module {
   private val responsePending: Bool           = RegInit(false.B)
   private val responseReg:     MemoryResponse = Reg(new MemoryResponse(dataWidth))
 
-  private val mtimeLowAddress:  UInt = MMIOAddressMap.CLINT.base.U(addrWidth.W)
-  private val mtimeHighAddress: UInt = (MMIOAddressMap.CLINT.base + 4).U(addrWidth.W)
+  private val mtimeLowAddress:  UInt = SimulationAddressMap.Clint.base.U(addrWidth.W)
+  private val mtimeHighAddress: UInt = (SimulationAddressMap.Clint.base + 4).U(addrWidth.W)
 
   private def mergeBytes(oldData: UInt, newData: UInt, byteMask: UInt): UInt = {
     val bitMask: UInt = FillInterleaved(8, byteMask)
@@ -29,9 +29,9 @@ class Clint(addrWidth: Int, dataWidth: Int) extends Module {
   mtime := mtime + 1.U
 
   when(io.request.fire) {
-    responsePending      := true.B
-    responseReg.readData := 0.U
-    responseReg.code     := MemoryResponseCode.okay
+    responsePending          := true.B
+    responseReg.readData     := 0.U
+    responseReg.responseCode := MemoryResponseCode.okay
 
     when(io.request.bits.address === mtimeLowAddress) {
       when(io.request.bits.operation === MemoryOperation.read) {
@@ -52,7 +52,7 @@ class Clint(addrWidth: Int, dataWidth: Int) extends Module {
         )
       }
     }.otherwise {
-      responseReg.code := MemoryResponseCode.decodeError
+      responseReg.responseCode := MemoryResponseCode.decodeError
     }
   }.elsewhen(io.response.fire) {
     responsePending := false.B
