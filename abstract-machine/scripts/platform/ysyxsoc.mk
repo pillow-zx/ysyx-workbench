@@ -1,0 +1,30 @@
+AM_SRCS := riscv/ysyxsoc/start.S \
+					 riscv/ysyxsoc/trm.c \
+					 platform/dummy/vme.c \
+					 platform/dummy/mpe.c
+
+CFLAGS    += -fdata-sections -ffunction-sections
+LDSCRIPTS += $(AM_HOME)/scripts/ysyxsoc.ld
+LDFLAGS   += --defsym=_pmem_start=0x20000000
+LDFLAGS   += --gc-sections -e _start
+NPCFLAGS  += -l $(shell dirname $(IMAGE).elf)/ysyxsoc-log.txt -i $(IMAGE).bin -e $(IMAGE).elf
+
+MAINARGS_MAX_LEN = 64
+MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
+CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
+
+insert-arg: image
+	@python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"
+
+image: image-dep
+	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
+	@echo + OBJCOPY "->" $(IMAGE_REL).bin
+	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
+
+sim: insert-arg
+	$(MAKE) -C $(NPC_HOME) ISA=$(ISA) sim ARGS="$(NPCFLAGS)"
+
+run: insert-arg
+	$(MAKE) -C $(NPC_HOME) ISA=$(ISA) run ARGS="$(NPCFLAGS)"
+
+.PHONY: insert-arg
