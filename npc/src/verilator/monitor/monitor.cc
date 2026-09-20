@@ -7,28 +7,39 @@
 #include <monitor.hh>
 
 static auto getString(const std::string_view prompt = "(npc) >") -> std::string {
-    std::cout << prompt;
-    std::string command;
-    std::getline(std::cin, command);
-    return command;
+	std::cout << prompt;
+	std::string command;
+	std::getline(std::cin, command);
+	return command;
 }
 
 static auto splitString(const std::string_view text, const char delimiter) -> std::vector<std::string> {
-    std::vector<std::string> tokens;
-    for (auto &&token : text | std::views::split(delimiter)) {
-        if (!token.empty()) {
-            tokens.emplace_back(token.begin(), token.end());
-        }
-    }
-    return tokens;
+	std::vector<std::string> tokens;
+	for (auto &&token : text | std::views::split(delimiter)) {
+		if (!token.empty()) {
+			tokens.emplace_back(token.begin(), token.end());
+		}
+	}
+	return tokens;
 }
 
 auto getCommands(const std::string_view prompt = "(npc) >") -> std::vector<std::string> {
-    const auto command = getString(prompt);
-    if (command.empty()) {
-        return {};
-    }
+	const auto command = getString(prompt);
+	if (command.empty()) {
+		return {};
+	}
 
-    auto tokens = splitString(command, ' ');
-    return tokens;
+	auto tokens = splitString(command, ' ');
+	return tokens;
+}
+
+auto joinArguments(const std::vector<std::string> &arguments, const std::size_t first) -> std::string {
+	std::string expression;
+	for (std::size_t index = first; index < arguments.size(); ++index) {
+		if (!expression.empty()) {
+			expression.push_back(' ');
+		}
+		expression += arguments[index];
+	}
+	return expression;
 }
