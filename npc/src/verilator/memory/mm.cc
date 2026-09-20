@@ -15,7 +15,7 @@ namespace {
     };
 }
 
-auto Memory::getBaseAddress() -> std::size_t { return MEMORYSTART; }
+auto Memory::getBaseAddress() -> std::size_t { return MROMSTART; }
 
 static constexpr auto toString(const MemoryOperation op) -> std::string_view {
     switch (op) {
@@ -40,12 +40,12 @@ auto Memory::init(const std::string &filename) -> bool {
 auto Memory::getMemory() -> std::span<const std::uint8_t> { return memory_; }
 
 auto Memory::readData(const std::uint32_t addr, const std::uint32_t size) -> std::uint32_t {
-    if (size == 0 || size > sizeof(std::uint32_t) || addr < MEMORYSTART) {
+    if (size == 0 || size > sizeof(std::uint32_t) || addr < MROMSTART) {
         return 0;
     }
 
-    const auto offset = addr - MEMORYSTART;
-    if (offset > MEMORYSIZE || size > MEMORYSIZE - offset) {
+    const auto offset = addr - MROMSTART;
+    if (offset > MROMSIZE || size > MROMSIZE - offset) {
         return 0;
     }
     std::uint32_t data = 0;
@@ -62,7 +62,7 @@ auto Memory::readData(const std::uint32_t addr, const std::uint32_t size) -> std
 
 auto Memory::writeData(const std::uint32_t addr, const std::uint32_t data,
                        const std::uint32_t wmask) -> void {
-    if (addr < MEMORYSTART) {
+    if (addr < MROMSTART) {
         return;
     }
 
@@ -75,9 +75,9 @@ auto Memory::writeData(const std::uint32_t addr, const std::uint32_t data,
         }
     }
 
-    const auto offset = addr - MEMORYSTART;
+    const auto offset = addr - MROMSTART;
     for (std::size_t lane = 0; lane < sizeof(std::uint32_t); ++lane) {
-        if ((wmask & (1U << lane)) == 0 || offset + lane >= MEMORYSIZE) {
+        if ((wmask & (1U << lane)) == 0 || offset + lane >= MROMSIZE) {
             continue;
         }
         memory_[offset + lane] = static_cast<std::uint8_t>(data >> (lane * 8));
@@ -95,8 +95,8 @@ auto Memory::showMemory(const std::uint32_t addr, const std::uint32_t len)
     const auto begin = static_cast<std::uint64_t>(addr);
     const auto end = begin + static_cast<std::uint64_t>(len) * wordSize;
     if (constexpr auto memoryEnd =
-            static_cast<std::uint64_t>(MEMORYSTART) + MEMORYSIZE;
-        begin < MEMORYSTART || end > memoryEnd) {
+            static_cast<std::uint64_t>(MROMSTART) + MROMSIZE;
+        begin < MROMSTART || end > memoryEnd) {
         std::cout << "Error: Address range out of bounds." << std::endl;
         return;
     }
@@ -112,14 +112,6 @@ auto Memory::showMemory(const std::uint32_t addr, const std::uint32_t len)
     }
     std::cout.flags(flags);
     std::cout.fill(fill);
-}
-
-auto Memory::mrom2mem(std::uint32_t addr) -> const std::uint32_t {
-    const auto offset = addr - MROMSTART;
-    if (addr < MROMSTART || offset > MROMSIZE) {
-
-    }
-    return MEMORYSTART + offset;
 }
 
 auto Memory::loadProgram(const std::string &filename) -> bool {
@@ -140,7 +132,7 @@ auto Memory::loadProgram(const std::string &filename) -> bool {
     }
 
     const auto end = file.tellg();
-    if (end < 0 || static_cast<std::uint64_t>(end) > MEMORYSIZE) {
+    if (end < 0 || static_cast<std::uint64_t>(end) > MROMSIZE) {
         std::cout << "File size exceeds memory size." << std::endl;
         return false;
     }
