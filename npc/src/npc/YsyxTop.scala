@@ -87,11 +87,13 @@ class YsyxTopIO(xlen: Int) extends Bundle {
 class ysyx_00000000(config: NpcConfig = NpcConfig()) extends Module {
   val io: YsyxTopIO = IO(new YsyxTopIO(config.xlen))
 
-  private val core:    CpuCore         = Module(new CpuCore(config))
-  private val memory:  MemorySubsystem = Module(new MemorySubsystem(Constants.addrWidth, Constants.dataWidth))
-  private val adapter:       AXI4Adapter       = Module(new AXI4Adapter(Constants.addrWidth, Constants.dataWidth))
-  private val interconnect:  MemoryInterconnect = Module(new MemoryInterconnect(Constants.addrWidth, Constants.dataWidth))
-  private val clint:         Clint              = Module(new Clint(Constants.addrWidth, Constants.dataWidth))
+  private val core:         CpuCore            = Module(new CpuCore(config))
+  private val memory:       MemorySubsystem    = Module(new MemorySubsystem(Constants.addrWidth, Constants.dataWidth))
+  private val adapter:      AXI4Adapter        = Module(new AXI4Adapter(Constants.addrWidth, Constants.dataWidth))
+  private val interconnect: MemoryInterconnect = Module(
+    new MemoryInterconnect(Constants.addrWidth, Constants.dataWidth)
+  )
+  private val clint:        Clint              = Module(new Clint(Constants.addrWidth, Constants.dataWidth))
 
   core.io.imem <> memory.io.imem
   core.io.dmem <> memory.io.dmem

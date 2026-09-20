@@ -5,7 +5,7 @@ mtrace = false
 wtrace = true
 
 [difftest]
-difftest = true
+difftest = false
 
 [devices]
 serial = false

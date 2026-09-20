@@ -18,8 +18,8 @@ class MemoryInterconnect(addrWidth: Int, dataWidth: Int) extends Module {
   private val state:       MemoryInterconnectState.Type = RegInit(MemoryInterconnectState.idle)
   private val targetClint: Bool                         = RegInit(false.B)
 
-  private val decodedClint: Bool = SimulationAddressMap.Clint.contains(io.upstream.request.bits.address)
-  private val requestReady: Bool = Mux(decodedClint, io.clint.request.ready, io.memory.request.ready)
+  private val decodedClint:  Bool = SimulationAddressMap.Clint.contains(io.upstream.request.bits.address)
+  private val requestReady:  Bool = Mux(decodedClint, io.clint.request.ready, io.memory.request.ready)
   private val responseValid: Bool = Mux(targetClint, io.clint.response.valid, io.memory.response.valid)
   private val responseBits = Mux(targetClint, io.clint.response.bits, io.memory.response.bits)
 
