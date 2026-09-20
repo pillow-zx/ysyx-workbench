@@ -114,6 +114,14 @@ auto Memory::showMemory(const std::uint32_t addr, const std::uint32_t len)
     std::cout.fill(fill);
 }
 
+auto Memory::mrom2mem(std::uint32_t addr) -> const std::uint32_t {
+    const auto offset = addr - MROMSTART;
+    if (addr < MROMSTART || offset > MROMSIZE) {
+
+    }
+    return MEMORYSTART + offset;
+}
+
 auto Memory::loadProgram(const std::string &filename) -> bool {
     if (filename.empty()) {
         for (std::size_t word = 0; word < img.size(); ++word) {

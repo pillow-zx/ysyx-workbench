@@ -21,6 +21,9 @@ public:
 
     static auto showMemory(std::uint32_t addr, std::uint32_t len) -> void;
 
+    // for char-test
+    static auto mrom2mem(std::uint32_t addr) -> const std::uint32_t;
+
 private:
     static constexpr std::array<std::uint32_t, 5> img = {
         0x00000297, // auipc t0,0
@@ -32,6 +35,9 @@ private:
 
     static constexpr std::size_t MEMORYSTART = 0x80000000;
     static constexpr std::size_t MEMORYSIZE = 0x8000000;
+
+    static constexpr std::size_t MROMSTART = 0x20000000;
+    static constexpr std::size_t MROMSIZE = 0x0000fff;
 
     inline static auto memory_ = std::vector<std::uint8_t>(MEMORYSIZE, 0);
 

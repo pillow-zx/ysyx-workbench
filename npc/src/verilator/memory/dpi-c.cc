@@ -1,6 +1,8 @@
 #include <cassert>
 #include <cstdint>
 
+#include <mm.hh>
+
 extern "C" void flash_read(int32_t addr, int32_t *data) {
     (void)addr;
     (void)data;
@@ -8,6 +10,5 @@ extern "C" void flash_read(int32_t addr, int32_t *data) {
 }
 
 extern "C" void mrom_read(int32_t addr, int32_t *data) {
-    (void)addr;
-    *data = 0x00100073; // ebreak
+    *data = static_cast<int32_t>(Memory::readData(Memory::mrom2mem(static_cast<std::uint32_t>(addr)), 4));
 }
