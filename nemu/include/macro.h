@@ -106,6 +106,10 @@
 #define unlikely(cond) __builtin_expect(cond, 0)
 #endif
 
+#if !defined (unreachable)
+#define unreachable() __builtin_unreachable()
+#endif
+
 // for AM IOE
 #define io_read(reg)                                                           \
     ({                                                                         \

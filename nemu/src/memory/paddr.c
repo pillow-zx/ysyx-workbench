@@ -18,15 +18,38 @@
 #include <device/mmio.h>
 #include <isa.h>
 
+// 在 ysyxsoc 使用时使用 pmem 模拟 mrom
 #if defined(CONFIG_PMEM_MALLOC)
 static uint8_t *pmem = NULL;
 #else // CONFIG_PMEM_GARRAY
 static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 #endif
 
+#if defined(CONFIG_YSYXSOC)
+static uint8_t sram[CONFIG_SSIZE] PG_ALIGN = {};
+#endif
+
+static void out_of_bound(paddr_t addr)
+{
+        panic("address = " FMT_PADDR " is out of bound of pmem [" FMT_PADDR", " FMT_PADDR"] "
+        IFDEF(CONFIG_YSYXSOC, "or sram [" FMT_PADDR ", " FMT_PADDR"] ") "at pc = " FMT_WORD,
+        addr, PMEM_LEFT, PMEM_RIGHT,
+        IFDEF(CONFIG_YSYXSOC, SRAM_LEFT, ) IFDEF(CONFIG_YSYXSOC, SRAM_RIGHT, )
+        cpu.pc);
+}
+
 uint8_t *guest_to_host(paddr_t paddr)
 {
-        return pmem + paddr - CONFIG_MBASE;
+        if (in_pmem(paddr)) {
+                return pmem + paddr - CONFIG_MBASE;
+        }
+#if defined (CONFIG_YSYXSOC)
+        if (in_sram(paddr)) {
+                return sram + paddr - CONFIG_SBASE;
+        }
+#endif
+        out_of_bound(paddr);
+        unreachable();
 }
 paddr_t host_to_guest(uint8_t *haddr)
 {
@@ -41,14 +64,9 @@ static word_t pmem_read(paddr_t addr, int len)
 
 static void pmem_write(paddr_t addr, int len, word_t data)
 {
+        IFDEF(CONFIG_YSYXSOC, Assert(unlikely(!in_pmem(addr)),
+        "address = " FMT_PADDR " is writing the pmem space which is read only at pc = " FMT_WORD, addr, cpu.pc));
         host_write(guest_to_host(addr), len, data);
-}
-
-static void out_of_bound(paddr_t addr)
-{
-        panic("address = " FMT_PADDR " is out of bound of pmem [" FMT_PADDR
-              ", " FMT_PADDR "] at pc = " FMT_WORD,
-              addr, PMEM_LEFT, PMEM_RIGHT, cpu.pc);
 }
 
 void init_mem()
@@ -58,7 +76,8 @@ void init_mem()
         assert(pmem);
 #endif
         IFDEF(CONFIG_MEM_RANDOM, memset(pmem, rand(), CONFIG_MSIZE));
-        /* Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, */
+        IFDEF(CONFIG_SRAM_RANDOM, memset(sram, rand(), CONFIG_SSIZE));
+        /* Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT,*/
         /*     PMEM_RIGHT); */
 }
 
@@ -71,7 +90,8 @@ static void mtrace(char *str, paddr_t addr, int len)
 
 word_t paddr_read(paddr_t addr, int len)
 {
-        if (likely(in_pmem(addr))) {
+        if (likely(in_pmem(addr))
+                    IFDEF(CONFIG_YSYXSOC, || likely(in_sram(addr)))) {
                 IFDEF(CONFIG_MTRACE, mtrace("paddr_read", addr, len));
                 return pmem_read(addr, len);
         }
@@ -82,7 +102,8 @@ word_t paddr_read(paddr_t addr, int len)
 
 void paddr_write(paddr_t addr, int len, word_t data)
 {
-        if (likely(in_pmem(addr))) {
+        if (likely(in_pmem(addr))
+                    IFDEF(CONFIG_YSYXSOC, || likely(in_sram(addr)))) {
                 IFDEF(CONFIG_MTRACE, mtrace("paddr_write", addr, len));
                 pmem_write(addr, len, data);
                 return;
